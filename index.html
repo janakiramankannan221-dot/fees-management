@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[V2.2] Smart Student Fee Management System</title>
+  <meta name="description" content="Check your event fee payment status and pay online via UPI">
+  <link rel="stylesheet" href="style.css?v=2.1">
+  <!-- Firebase SDK (Compat Version) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+</head>
+
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="brand">
+      <div class="logo-icon">🎓</div>
+      Smart Fee Manager
+    </div>
+    <div class="nav-links">
+      <a href="login.html">🔐 Admin</a>
+    </div>
+  </nav>
+
+  <!-- Environment Warning -->
+  <div id="envWarning"
+    style="display:none; background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px;">
+    <h3 style="color: #92400e; margin-bottom: 8px;">⚠️ Setup Recommendation</h3>
+    <p id="envWarningMsg" style="color: #b45309; font-size: 0.9rem;"></p>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <h1 id="heroTitle">Student Fee Status</h1>
+      <p id="heroSubtitle">Enter your Register Number to check your payment status</p>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Enter Register Number..." aria-label="Register Number">
+        <button onclick="searchStudent()" id="searchBtn">Search</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <div class="page-wrapper">
+
+    <!-- Event Details Banners -->
+    <div id="eventsList" class="container"></div>
+
+    <!-- Notice Banner -->
+    <div id="noticeBanner" class="notice-banner hidden">
+      <span class="notice-icon">📢</span>
+      <span class="notice-text" id="noticeText"></span>
+    </div>
+
+    <!-- Search Result -->
+    <div id="resultArea"></div>
+
+    <!-- Footer -->
+    <div class="text-center mt-4" style="color: var(--text-secondary); font-size:.8rem;">
+      <p>Smart Student Fee Management System by janakiramankannan &copy; 2026</p>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Project Scripts -->
+  <script src="firebase-config.js"></script>
+  <script src="script.js?v=2.1"></script>
+
+  <script>
+    /* ============================================
+       STUDENT PAGE LOGIC
+       ============================================ */
+
+    // Load events
+    async function initPage() {
+      const events = await getEvents();
+      const list = document.getElementById('eventsList');
+      const activeEvents = events.filter(e => e.status === 'active');
+      
+      if (activeEvents.length > 0) {
+        document.getElementById('heroTitle').textContent = activeEvents.length === 1 ? activeEvents[0].name : "Student Fee Center";
+        
+        list.innerHTML = activeEvents.map(ev => `
+          <div class="card" style="margin-bottom:20px; border-top: 6px solid var(--primary); background: #fff;">
+            <div style="display:flex;align-items:flex-start;gap:16px;">
+              <span style="font-size:2rem;">🏀</span>
+              <div style="flex:1;">
+                <h3 style="font-size:1.2rem; font-weight: 800; color: var(--text); margin-bottom: 4px;">${escapeHTML(ev.name)}</h3>
+                <div style="display:flex; gap: 16px; flex-wrap: wrap;">
+                  ${ev.date ? `<p style="color:var(--primary); font-weight: 700; font-size:.8rem; text-transform: uppercase;">📅 ${ev.date}</p>` : ''}
+                  <p style="color:var(--accent); font-weight: 900; font-size:1rem;">💰 Fee: ₹${ev.amount}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        list.innerHTML = '<p class="text-center" style="color:var(--text-secondary);">No active events at the moment.</p>';
+      }
+      loadNotice();
+    }
+
+    // Show notice if exists
+    async function loadNotice() {
+      const notice = await getNotice();
+      if (notice && notice.trim()) {
+        document.getElementById('noticeBanner').classList.remove('hidden');
+        document.getElementById('noticeText').textContent = notice;
+      }
+    }
+
+    /**
+     * Search for a student by register number
+     */
+    async function searchStudent() {
+      const regNo = sanitize(document.getElementById('searchInput').value.trim());
+      const resultArea = document.getElementById('resultArea');
+      if (!regNo) { showToast('Please enter a Register Number', 'warning'); return; }
+
+      const students = await getStudents();
+      const student = students.find(s => (s.reg ? String(s.reg).toLowerCase() : '') === regNo.toLowerCase());
+
+      if (!student) {
+        resultArea.innerHTML = `<div class="result-card"><div class="result-header" style="background: var(--danger);"><h2>❌ Student Not Found</h2></div><div class="result-body text-center" style="padding:32px;"><p>No record found for Register Number: <strong>${escapeHTML(regNo)}</strong></p></div></div>`;
+        return;
+      }
+
+      const events = await getEvents();
+      const activeEvents = events.filter(e => e.status === 'active');
+      
+      let html = `
+      <div class="container">
+        <!-- Student Profile Card -->
+        <div class="card" style="margin-bottom:32px; border-left: 8px solid var(--primary); background: #fff; box-shadow: var(--shadow-lg);">
+          <div style="display:flex; align-items:center; gap:20px; padding: 10px 5px;">
+            <div style="font-size:3rem; background: var(--surface-alt); width:80px; height:80px; display:flex; align-items:center; justify-content:center; border-radius:12px; border: 2px solid var(--border);">⛹️</div>
+            <div>
+              <h2 style="font-size:1.8rem; font-weight:900; color:var(--text); margin-bottom:4px; text-transform:uppercase; letter-spacing:-0.5px;">${escapeHTML(student.name)}</h2>
+              <p style="font-size:1rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                <span style="opacity:0.7;">Reg No:</span> ${escapeHTML(student.reg)}
+                ${student.department ? `<span style="opacity:0.3; font-weight:300;">|</span> <span style="color:var(--accent);">${escapeHTML(student.department)}</span>` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+        <h3 class="section-title" style="font-size:1.1rem; margin-bottom:16px; opacity:0.8;">📋 Your Active Events</h3>`;
+
+      for (const ev of activeEvents) {
+        const payments = await getPayments(ev.id);
+        const pay = payments[student.reg] || {};
+        
+        let statusBadge, payButton;
+        if (pay.paid) {
+          statusBadge = '<span class="badge badge-paid">✅ Paid</span>';
+          payButton = '<button class="btn btn-success btn-block" disabled>✅ Payment Completed</button>';
+        } else if (pay.method === 'cash_pending') {
+          statusBadge = '<span class="badge badge-pending">⏳ Cash Pending</span>';
+          payButton = '<button class="btn btn-warning btn-block" disabled>⏳ Cash Payment Pending - See Admin</button>';
+        } else {
+          statusBadge = '<span class="badge badge-unpaid">❌ Unpaid</span>';
+          const upiId = /^\d{10}$/.test(ev.upiId) ? ev.upiId + '@upi' : ev.upiId;
+          payButton = `
+            <a href="upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(ev.name)}&am=${ev.amount}&cu=INR" class="btn btn-primary btn-block mb-2">💳 Pay Online — ₹${ev.amount}</a>
+            <button class="btn btn-outline btn-block" onclick="requestCashPayment('${student.reg}', '${ev.id}')">💵 Pay by Cash</button>`;
+        }
+
+        html += `
+        <div class="result-card" style="margin-top:0; margin-bottom:24px;">
+          <div class="result-header" style="padding:20px; text-align:left; background:var(--primary);">
+            <h3 style="font-size:1.1rem; color:#fff;">🎪 ${escapeHTML(ev.name)}</h3>
+          </div>
+          <div class="result-body">
+            <div class="info-row"><span class="label">Fee Amount</span><span class="value">₹${ev.amount}</span></div>
+            <div class="info-row"><span class="label">Status</span><span class="value">${statusBadge}</span></div>
+          </div>
+          <div class="result-footer">${payButton}</div>
+        </div>`;
+      }
+      
+      html += `</div>`;
+      resultArea.innerHTML = html;
+      resultArea.scrollIntoView({ behavior: 'smooth' });
+    }
+    async function requestCashPayment(regNo, eventId) {
+      if (!regNo || !eventId) return;
+      const phoneInput = prompt('Please enter your 10-digit Mobile Number to proceed with Cash Payment:');
+      if (phoneInput === null) return;
+      const phone = sanitize(phoneInput.trim());
+      if (!/^\d{10}$/.test(phone)) { showToast('Please enter a valid 10-digit phone number.', 'error'); return; }
+      
+      const events = await getEvents();
+      const ev = events.find(e => e.id === eventId);
+      
+      const paymentData = {
+        paid: false,
+        method: 'cash_pending',
+        amount: Number(ev.amount),
+        timestamp: Date.now()
+      };
+      
+      // Update student phone globally
+      const students = await getStudents();
+      const student = students.find(s => s.reg === regNo);
+      if (student) {
+        student.phone = phone;
+        await window.saveStudent(student);
+      }
+
+      await window.savePayment(eventId, regNo, paymentData);
+      showToast('Cash request recorded. Please pay the admin.', 'success');
+      searchStudent(); 
+    }
+
+    // Expose search function to window
+    window.searchStudent = searchStudent;
+
+    // Allow Enter key to search
+    document.getElementById('searchInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') searchStudent();
+    });
+
+    // Initialize
+    initPage();
+    loadNotice();
+  </script>
+</body>
+
+</html>

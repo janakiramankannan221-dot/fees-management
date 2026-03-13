@@ -1,0 +1,359 @@
+/* ============================================
+   SMART STUDENT FEE MANAGEMENT SYSTEM
+   Shared Utilities — script.js
+   ============================================ */
+
+/**
+ * Retrieve the students array from Firestore or LocalStorage.
+ * @returns {Promise<Array>} Array of student objects
+ */
+async function getStudents() {
+  if (!window.isConfigured) {
+    const data = localStorage.getItem('students');
+    return data ? JSON.parse(data) : [];
+  }
+  try {
+    const querySnapshot = await window.db.collection("students").get();
+    const students = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      students.push({
+        id: doc.id,
+        ...data,
+        name: data.name || data.Name || '',
+        reg: data.reg || data.RegNo || data.id || doc.id || ''
+      });
+    });
+    return students;
+  } catch (e) {
+    console.error('Error reading students from Firestore:', e);
+    const data = localStorage.getItem('students');
+    return data ? JSON.parse(data) : [];
+  }
+}
+
+/**
+ * Save a single student to Firestore and LocalStorage.
+ * @param {Object} student — Student object
+ */
+async function saveStudent(student) {
+  // Always save to localStorage as a local secondary/fallback
+  const students = await getStudentsLocalOnly();
+  const idx = students.findIndex(s => s.reg === student.reg);
+  if (idx >= 0) students[idx] = student;
+  else students.push(student);
+  localStorage.setItem('students', JSON.stringify(students));
+
+  if (!window.isConfigured) return;
+
+  try {
+    await window.db.collection("students").doc(student.reg).set(student);
+  } catch (e) {
+    console.error('Error saving student to Firestore:', e);
+    // Don't show toast if it's a background process (like batch upload) unless it's a real failure
+    if (typeof window.isBatch === 'undefined') {
+      showToast('Sync error — student data not saved to cloud.', 'error');
+    }
+  }
+}
+
+/**
+ * Helper to get students from localStorage only (for internal logic)
+ */
+async function getStudentsLocalOnly() {
+  const data = localStorage.getItem('students');
+  return data ? JSON.parse(data) : [];
+}
+
+/**
+ * Save the entire students array.
+ * @param {Array} students — Array of student objects
+ */
+async function saveStudents(students) {
+  localStorage.setItem('students', JSON.stringify(students));
+  if (!window.isConfigured) return;
+  try {
+    for (const student of students) {
+      await saveStudent(student);
+    }
+  } catch (e) {
+    console.error('Error saving students batch to Firestore:', e);
+  }
+}
+
+/* ---------- Security / Sanitization ---------- */
+
+/**
+ * Sanitize a string to prevent injection.
+ * Strips HTML tags and trims whitespace.
+ * @param {string} str — The input string
+ * @returns {string} Sanitized string
+ */
+function sanitize(str) {
+  if (typeof str !== 'string') return '';
+  // Remove any HTML tags
+  const temp = document.createElement('div');
+  temp.textContent = str;
+  return temp.innerHTML.trim();
+}
+
+/**
+ * Escape HTML entities for safe display in innerHTML.
+ * @param {string} str — The input string
+ * @returns {string} Escaped string
+ */
+function escapeHTML(str) {
+  if (typeof str !== 'string') return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return str.replace(/[&<>"']/g, c => map[c]);
+}
+
+/**
+ * Clean phone number for tel: and wa.me: links.
+ * Removes all non-numeric characters.
+ */
+function cleanPhone(phone) {
+    if (!phone) return '';
+    return phone.replace(/\D/g, '');
+}
+
+/* ---------- Toast Notifications ---------- */
+
+/**
+ * Show a toast notification.
+ * @param {string} message — Message to display
+ * @param {string} type — 'success' | 'error' | 'warning' | 'info'
+ * @param {number} duration — Duration in milliseconds (default 3000)
+ */
+function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️',
+    'event-switch': '🎪'
+  };
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type] || ''}</span> <span>${escapeHTML(message)}</span>`;
+  container.appendChild(toast);
+
+  // Auto-dismiss
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(60px)';
+    toast.style.transition = 'all .3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+/* ---------- Global Settings Helpers ---------- */
+
+/**
+ * Retrieve all events from Firestore or LocalStorage.
+ */
+async function getEvents() {
+  if (!window.isConfigured) {
+    const data = localStorage.getItem('events_list');
+    return data ? JSON.parse(data) : [];
+  }
+  try {
+    const querySnapshot = await window.db.collection("events").get();
+    const events = [];
+    querySnapshot.forEach((doc) => {
+      events.push({ id: doc.id, ...doc.data() });
+    });
+    return events;
+  } catch (e) {
+    console.error('Error reading events:', e);
+    const data = localStorage.getItem('events_list');
+    return data ? JSON.parse(data) : [];
+  }
+}
+
+/**
+ * Save event details to a dedicated events collection.
+ */
+async function saveEvent(ev) {
+  const events = await getEvents();
+  const id = ev.id || "event_" + Date.now();
+  ev.id = id;
+  ev.updatedAt = Date.now();
+
+  const idx = events.findIndex(e => e.id === id);
+  if (idx >= 0) events[idx] = ev;
+  else events.push(ev);
+  localStorage.setItem('events_list', JSON.stringify(events));
+
+  if (window.isConfigured) {
+    try {
+      await window.db.collection("events").doc(id).set(ev);
+    } catch (e) { console.error('Error saving event:', e); }
+  }
+  return id;
+}
+
+/**
+ * Delete an event.
+ */
+async function deleteEventRecord(id) {
+  let events = await getEvents();
+  events = events.filter(e => e.id !== id);
+  localStorage.setItem('events_list', JSON.stringify(events));
+
+  if (window.isConfigured) {
+    try {
+      await window.db.collection("events").doc(id).delete();
+      // Note: In production, you'd also delete the payments subcollection
+    } catch (e) { console.error('Error deleting event:', e); }
+  }
+}
+
+/**
+ * Get payments for a specific event.
+ */
+async function getPayments(eventId) {
+  if (!window.isConfigured) {
+    const data = localStorage.getItem(`payments_${eventId}`);
+    return data ? JSON.parse(data) : {};
+  }
+  try {
+    const querySnapshot = await window.db.collection("events").doc(eventId).collection("payments").get();
+    const payments = {};
+    querySnapshot.forEach((doc) => {
+      payments[doc.id] = doc.data();
+    });
+    return payments;
+  } catch (e) {
+    console.error('Error reading payments:', e);
+    const data = localStorage.getItem(`payments_${eventId}`);
+    return data ? JSON.parse(data) : {};
+  }
+}
+
+/**
+ * Save a payment record for a student for a specific event.
+ */
+async function savePayment(eventId, studentReg, paymentData) {
+  if (!eventId || !studentReg) return;
+
+  // Local storage backup
+  const data = localStorage.getItem(`payments_${eventId}`);
+  const payments = data ? JSON.parse(data) : {};
+  payments[studentReg] = paymentData;
+  localStorage.setItem(`payments_${eventId}`, JSON.stringify(payments));
+
+  if (window.isConfigured) {
+    try {
+      await window.db.collection("events").doc(eventId).collection("payments").doc(studentReg).set(paymentData);
+    } catch (e) { console.error('Error saving payment:', e); }
+  }
+}
+
+/**
+ * Subscribe to real-time updates for events.
+ */
+function subscribeToEvents(callback) {
+  if (!window.isConfigured || !window.db) return null;
+  return window.db.collection("events").onSnapshot((querySnapshot) => {
+    const events = [];
+    querySnapshot.forEach((doc) => {
+      events.push({ id: doc.id, ...doc.data() });
+    });
+    callback(events);
+  }, (error) => {
+    console.error("Error subscribing to events:", error);
+  });
+}
+
+/**
+ * Subscribe to real-time updates for payments of a specific event.
+ */
+function subscribeToPayments(eventId, callback) {
+  if (!window.isConfigured || !window.db || !eventId) return null;
+  return window.db.collection("events").doc(eventId).collection("payments").onSnapshot((querySnapshot) => {
+    const payments = {};
+    querySnapshot.forEach((doc) => {
+      payments[doc.id] = doc.data();
+    });
+    callback(payments);
+  }, (error) => {
+    console.error("Error subscribing to payments:", error);
+  });
+}
+
+/**
+ * Maintain backward compatibility for singular getEvent calls.
+ * Returns the "Active" event or the most recent one.
+ */
+async function getEvent() {
+  const events = await getEvents();
+  if (events.length === 0) return {};
+  // Prioritize an 'active' status, otherwise most recent
+  const active = events.find(e => e.status === 'active');
+  if (active) return active;
+  return events.sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+}
+
+async function saveEventFirestore(ev) {
+  return await saveEvent(ev);
+}
+
+/**
+ * Retrieve notice.
+ */
+async function getNotice() {
+  if (!window.isConfigured) {
+    return localStorage.getItem('admin_notice') || "";
+  }
+  try {
+    const docSnap = await window.db.collection("settings").doc("admin_notice").get();
+    return docSnap.exists ? docSnap.data().text : "";
+  } catch (e) {
+    console.error('Error reading notice:', e);
+    return "";
+  }
+}
+
+/**
+ * Save notice.
+ */
+async function saveNoticeFirestore(text) {
+  localStorage.setItem('admin_notice', text);
+  if (!window.isConfigured) return;
+  try {
+    await window.db.collection("settings").doc("admin_notice").set({ text });
+  } catch (e) {
+    console.error('Error saving notice:', e);
+  }
+}
+
+// Attach all to window
+window.getStudents = getStudents;
+window.saveStudent = saveStudent;
+window.saveStudents = saveStudents;
+window.getEvents = getEvents;
+window.saveEvent = saveEvent;
+window.deleteEventRecord = deleteEventRecord;
+window.getPayments = getPayments;
+window.savePayment = savePayment;
+window.subscribeToEvents = subscribeToEvents;
+window.subscribeToPayments = subscribeToPayments;
+window.getEvent = getEvent; // Compatibility
+window.saveEventFirestore = saveEventFirestore; // Compatibility
+window.getNotice = getNotice;
+window.saveNoticeFirestore = saveNoticeFirestore;
+window.sanitize = sanitize;
+window.escapeHTML = escapeHTML;
+window.cleanPhone = cleanPhone;
+window.showToast = showToast;

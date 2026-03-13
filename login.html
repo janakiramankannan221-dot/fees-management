@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — Smart Student Fee Management</title>
+    <meta name="description" content="Secure admin login for Smart Student Fee Management System">
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+</head>
+
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <!-- Logo -->
+            <div class="login-logo">🎓</div>
+            <h1>Admin Login</h1>
+            <p class="subtitle">Smart Student Fee Management System</p>
+
+            <!-- Error Message -->
+            <div id="errorMsg" class="error-msg hidden"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="form-group">
+                    <label for="email">Admin Email</label>
+                    <input type="email" id="email" class="form-control" placeholder="Enter admin email" required
+                        autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="Enter password" required
+                        autocomplete="current-password">
+                </div>
+                <button type="submit" id="submitBtn" class="btn btn-primary btn-block btn-lg mt-2">
+                    🔐 Sign In
+                </button>
+            </form>
+
+            <p class="mt-3" style="font-size:.8rem;color:var(--text-secondary);">
+                Authorized administrators only
+            </p>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script>
+        /* ============================================
+           LOGIN LOGIC
+           ============================================ */
+
+        // Redirect if already logged in (checked by persistence mostly)
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) window.location.href = 'admin.html';
+        });
+
+        /**
+         * Handle login form submission
+         */
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const pass = document.getElementById('password').value;
+            const btn = document.getElementById('submitBtn');
+
+            if (!email || !pass) {
+                showError('Please enter both email and password.');
+                return false;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⌛ Signing in...';
+
+            try {
+                await firebase.auth().signInWithEmailAndPassword(email, pass);
+                // Redirect happens in onAuthStateChanged
+            } catch (error) {
+                console.error("Login error:", error);
+                showError(getFriendlyError(error.code));
+                btn.disabled = false;
+                btn.textContent = '🔐 Sign In';
+            }
+            return false;
+        }
+
+        function getFriendlyError(code) {
+            switch (code) {
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    return 'Invalid email or password.';
+                case 'auth/too-many-requests':
+                    return 'Too many failed attempts. Please try again later.';
+                default:
+                    return 'Login failed. Please check your credentials.';
+            }
+        }
+
+        /**
+         * Display error message
+         */
+        function showError(msg) {
+            const errorDiv = document.getElementById('errorMsg');
+            errorDiv.textContent = msg;
+            errorDiv.classList.remove('hidden');
+            errorDiv.style.animation = 'none';
+            errorDiv.offsetHeight; // trigger reflow
+            errorDiv.style.animation = 'slideUp .3s ease';
+        }
+    </script>
+</body>
+
+</html>
