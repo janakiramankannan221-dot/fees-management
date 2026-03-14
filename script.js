@@ -66,15 +66,46 @@ async function getStudentsLocalOnly() {
 }
 
 /**
+ * [BUGFIX] Delete a single student from Firestore and LocalStorage.
+ * Previously, admin.html called window.db directly without checking isConfigured,
+ * which crashed when Firebase was not configured.
+ * @param {string} reg — Register number (document ID)
+ */
+async function deleteStudentRecord(reg) {
+  // Always remove from localStorage
+  let students = await getStudentsLocalOnly();
+  students = students.filter(s => s.reg !== reg);
+  localStorage.setItem('students', JSON.stringify(students));
+
+  if (!window.isConfigured) return;
+  try {
+    await window.db.collection("students").doc(reg).delete();
+  } catch (e) {
+    console.error('Error deleting student from Firestore:', e);
+    throw e;
+  }
+}
+
+/**
  * Save the entire students array.
+ * [IMPROVEMENT] Uses Firestore batched writes (max 500 per batch) instead of
+ * sequential await saveStudent() calls, which was O(n) round-trips and very
+ * slow for large Excel imports.
  * @param {Array} students — Array of student objects
  */
 async function saveStudents(students) {
   localStorage.setItem('students', JSON.stringify(students));
   if (!window.isConfigured) return;
   try {
-    for (const student of students) {
-      await saveStudent(student);
+    const BATCH_SIZE = 490; // Firestore limit is 500 ops per batch
+    for (let i = 0; i < students.length; i += BATCH_SIZE) {
+      const chunk = students.slice(i, i + BATCH_SIZE);
+      const batch = window.db.batch();
+      chunk.forEach(student => {
+        const ref = window.db.collection("students").doc(student.reg);
+        batch.set(ref, student);
+      });
+      await batch.commit();
     }
   } catch (e) {
     console.error('Error saving students batch to Firestore:', e);
@@ -340,6 +371,7 @@ async function saveNoticeFirestore(text) {
 
 // Attach all to window
 window.getStudents = getStudents;
+window.deleteStudentRecord = deleteStudentRecord;
 window.saveStudent = saveStudent;
 window.saveStudents = saveStudents;
 window.getEvents = getEvents;
