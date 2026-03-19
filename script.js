@@ -262,7 +262,8 @@ async function getPayments(eventId) {
     const querySnapshot = await window.db.collection("events").doc(eventId).collection("payments").get();
     const payments = {};
     querySnapshot.forEach((doc) => {
-      payments[doc.id] = doc.data();
+      // Use original casing or standardized casing? Standardizing to uppercase for keys.
+      payments[doc.id.toUpperCase()] = doc.data();
     });
     return payments;
   } catch (e) {
@@ -277,22 +278,39 @@ async function getPayments(eventId) {
  */
 async function savePayment(eventId, studentReg, paymentData) {
   if (!eventId || !studentReg) return;
+  const reg = studentReg.trim().toUpperCase();
 
   // Local storage backup
   const data = localStorage.getItem(`payments_${eventId}`);
   const payments = data ? JSON.parse(data) : {};
-  payments[studentReg] = paymentData;
+  payments[reg] = paymentData;
   localStorage.setItem(`payments_${eventId}`, JSON.stringify(payments));
 
   if (window.isConfigured) {
     try {
-      await window.db.collection("events").doc(eventId).collection("payments").doc(studentReg).set(paymentData);
+      await window.db.collection("events").doc(eventId).collection("payments").doc(reg).set(paymentData);
     } catch (e) { console.error('Error saving payment:', e); }
   }
 }
 
 /**
- * Subscribe to real-time updates for events.
+ * Subscribe to real-time updates for payments of a specific event.
+ */
+function subscribeToPayments(eventId, callback) {
+  if (!window.isConfigured || !window.db || !eventId) return null;
+  return window.db.collection("events").doc(eventId).collection("payments").onSnapshot((querySnapshot) => {
+    const payments = {};
+    querySnapshot.forEach((doc) => {
+      payments[doc.id.toUpperCase()] = doc.data();
+    });
+    callback(payments);
+  }, (error) => {
+    console.error("Error subscribing to payments:", error);
+  });
+}
+
+/**
+ * Subscribe to real-time updates for all events.
  */
 function subscribeToEvents(callback) {
   if (!window.isConfigured || !window.db) return null;
@@ -308,34 +326,16 @@ function subscribeToEvents(callback) {
 }
 
 /**
- * Subscribe to real-time updates for payments of a specific event.
- */
-function subscribeToPayments(eventId, callback) {
-  if (!window.isConfigured || !window.db || !eventId) return null;
-  return window.db.collection("events").doc(eventId).collection("payments").onSnapshot((querySnapshot) => {
-    const payments = {};
-    querySnapshot.forEach((doc) => {
-      payments[doc.id] = doc.data();
-    });
-    callback(payments);
-  }, (error) => {
-    console.error("Error subscribing to payments:", error);
-  });
-}
-
-/**
- * Maintain backward compatibility for singular getEvent calls.
- * Returns the "Active" event or the most recent one.
+ * Compatibility: Get the active event.
  */
 async function getEvent() {
   const events = await getEvents();
-  if (events.length === 0) return {};
-  // Prioritize an 'active' status, otherwise most recent
-  const active = events.find(e => e.status === 'active');
-  if (active) return active;
-  return events.sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  return events.find(e => e.status === 'active') || events[0] || {};
 }
 
+/**
+ * Compatibility: Save event to Firestore.
+ */
 async function saveEventFirestore(ev) {
   return await saveEvent(ev);
 }
@@ -345,14 +345,14 @@ async function saveEventFirestore(ev) {
  */
 async function getNotice() {
   if (!window.isConfigured) {
-    return localStorage.getItem('admin_notice') || "";
+    return localStorage.getItem('notice') || "";
   }
   try {
-    const docSnap = await window.db.collection("settings").doc("admin_notice").get();
-    return docSnap.exists ? docSnap.data().text : "";
+    const docSnap = await window.db.collection("settings").doc("notice").get();
+    return docSnap.exists ? (docSnap.data().text || "") : "";
   } catch (e) {
     console.error('Error reading notice:', e);
-    return "";
+    return localStorage.getItem('notice') || "";
   }
 }
 
@@ -360,12 +360,38 @@ async function getNotice() {
  * Save notice.
  */
 async function saveNoticeFirestore(text) {
-  localStorage.setItem('admin_notice', text);
+  localStorage.setItem('notice', text);
   if (!window.isConfigured) return;
   try {
-    await window.db.collection("settings").doc("admin_notice").set({ text });
+    await window.db.collection("settings").doc("notice").set({ text });
   } catch (e) {
     console.error('Error saving notice:', e);
+  }
+}
+
+/**
+ * Get dynamic admin name.
+ */
+async function getAdminName() {
+  try {
+    const docSnap = await window.db.collection("settings").doc("admin").get();
+    return docSnap.exists ? (docSnap.data().name || "Admin") : "Admin";
+  } catch (e) {
+    console.error('Error reading admin name:', e);
+    return localStorage.getItem('admin_name') || "Admin";
+  }
+}
+
+/**
+ * Save dynamic admin name.
+ */
+async function saveAdminName(name) {
+  localStorage.setItem('admin_name', name);
+  if (!window.isConfigured) return;
+  try {
+    await window.db.collection("settings").doc("admin").set({ name });
+  } catch (e) {
+    console.error('Error saving admin name:', e);
   }
 }
 
@@ -385,6 +411,8 @@ window.getEvent = getEvent; // Compatibility
 window.saveEventFirestore = saveEventFirestore; // Compatibility
 window.getNotice = getNotice;
 window.saveNoticeFirestore = saveNoticeFirestore;
+window.getAdminName = getAdminName;
+window.saveAdminName = saveAdminName;
 window.sanitize = sanitize;
 window.escapeHTML = escapeHTML;
 window.cleanPhone = cleanPhone;

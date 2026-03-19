@@ -1,1483 +1,612 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>[V2.2] Admin Dashboard — Smart Student Fee Management</title>
-    <meta name="description"
-        content="Admin dashboard for managing student event fees, uploading data, and sending reminders">
-    <link rel="stylesheet" href="style.css?v=2.1">
-    <!-- Firebase SDK (Compat Version) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <!-- SheetJS CDN -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — Smart Student Fee Management</title>
+  <meta name="description" content="Admin dashboard for managing student event fees">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-brand">
-            <div class="logo-icon" style="background:#fff; color:var(--primary);">🎓</div>
-            <h2 style="font-size: 1.2rem; font-weight: 800; margin-top: 12px;">Admin Panel</h2>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-icon" style="background:#fff;color:var(--primary);">🎓</div>
+      <h2 style="font-size:1.2rem;font-weight:800;margin-top:12px;">Admin Panel</h2>
+    </div>
+    <div class="sidebar-nav" id="sidebarNav">
+      <button class="sidebar-item active" onclick="switchTab('manage')">📋 Manage</button>
+      <button class="sidebar-item" onclick="switchTab('unpaid')">❌ Unpaid</button>
+      <button class="sidebar-item" onclick="switchTab('paid')">✅ Paid</button>
+      <button class="sidebar-item" onclick="switchTab('allStudents')">📄 All Students</button>
+      <button class="sidebar-item" onclick="switchTab('cash')">💵 Cash Requests</button>
+      <button class="sidebar-item" onclick="switchTab('event')">🎪 Event / Trip</button>
+      <button class="sidebar-item" onclick="switchTab('notice')">📢 Notice</button>
+      <button class="sidebar-item" onclick="switchTab('settings')">⚙️ Settings</button>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="logo-icon">🎓</div>
+      Admin Panel
+    </div>
+    <div style="flex:1;margin:0 12px;max-width:300px;" id="eventSelectWrapper" class="hidden">
+      <select id="activeEventId" class="form-control" onchange="switchEvent()" style="font-weight:700;border-color:var(--primary);padding:8px 12px;height:auto;font-size:.9rem;"></select>
+    </div>
+    <div class="nav-links">
+      <a href="index.html">📱 Student View</a>
+      <button onclick="logout()" id="logoutBtn">🚪 Logout</button>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+    <!-- MANAGE TAB -->
+    <div class="tab-panel active" id="tab-manage">
+      <div class="section">
+        <h2 class="section-title">📈 Event Overview</h2>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card"><div class="stat-icon blue">⛹️</div><div class="stat-info"><p>Total Students</p><h3 id="totalCount">0</h3></div></div>
+          <div class="stat-card"><div class="stat-icon green">🏆</div><div class="stat-info"><p>Paid Students</p><h3 id="paidCount">0</h3></div></div>
+          <div class="stat-card"><div class="stat-icon red">🛑</div><div class="stat-info"><p>Unpaid Students</p><h3 id="unpaidCount">0</h3></div></div>
+          <div class="stat-card"><div class="stat-icon orange">📊</div><div class="stat-info"><p>Payment Rate</p><h3 id="paymentPercent">0%</h3></div></div>
+          <div class="stat-card"><div class="stat-icon blue">💵</div><div class="stat-info"><p>Total Collected</p><h3 id="totalCollected">₹0</h3></div></div>
+          <div class="stat-card" style="border-top-color:var(--primary-team);"><div class="stat-icon green">🏦</div><div class="stat-info"><p>Cash Collected</p><h3 id="cashCollected">₹0</h3></div></div>
+          <div class="stat-card" style="border-top-color:var(--accent-secondary);"><div class="stat-icon red">📱</div><div class="stat-info"><p>UPI Collected</p><h3 id="upiCollected">₹0</h3></div></div>
         </div>
-        <div class="sidebar-nav" id="sidebarNav">
-            <button class="sidebar-item active" onclick="switchTab('manage')">📋 Manage</button>
-            <button class="sidebar-item" onclick="switchTab('unpaid')">❌ Unpaid</button>
-            <button class="sidebar-item" onclick="switchTab('allStudents')">📄 All Students</button>
-            <button class="sidebar-item" onclick="switchTab('cash')">💵 Cash Requests</button>
-            <button class="sidebar-item" onclick="switchTab('event')">🎪 Event / Trip</button>
-            <button class="sidebar-item" onclick="switchTab('notice')">📢 Notice</button>
-            <button class="sidebar-item" onclick="switchTab('settings')">⚙️ Settings</button>
+        <div class="charts-grid">
+          <div class="chart-card glass-glow-card"><h3>📊 Payment Status Overview</h3><div class="chart-container" id="pieChartContainer"><canvas id="pieChart"></canvas><div class="chart-empty-state hidden" id="pieEmptyState"><div class="empty-icon">📂</div><p>No payment data found</p></div></div></div>
+          <div class="chart-card glass-glow-card"><h3>🏫 Department-wise Students</h3><div class="chart-container" id="barChartContainer"><canvas id="barChart"></canvas><div class="chart-empty-state hidden" id="barEmptyState"><div class="empty-icon">👥</div><p>No student records found</p></div></div></div>
         </div>
+      </div>
+      <div class="section">
+        <h2 class="section-title">📥 Import & Export Data</h2>
+        <div class="toolbar">
+          <div class="file-input-wrapper"><button class="btn btn-primary">📤 Upload Excel</button><input type="file" id="excelUpload" accept=".xlsx,.xls" onchange="handleExcelUpload(event)"></div>
+          <button class="btn btn-success" onclick="exportExcel('all')">📥 Export All</button>
+          <button class="btn btn-success" onclick="exportExcel('paid')">📥 Export Paid</button>
+          <button class="btn btn-danger" onclick="exportExcel('unpaid')">📥 Export Unpaid</button>
+        </div>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-top:8px;">Required Excel Columns: <strong>(1) Name | (2) RegNo</strong> | (3) Department | (4) Phone | (5) Amount</p>
+      </div>
+      <div class="section">
+        <h2 class="section-title">➕ Add Student Manually</h2>
+        <div class="card">
+          <form id="addStudentForm" onsubmit="return addStudent(event)">
+            <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+              <div class="form-group"><label for="addName">Full Name *</label><input type="text" id="addName" class="form-control" placeholder="Student name" required></div>
+              <div class="form-group"><label for="addReg">Register Number *</label><input type="text" id="addReg" class="form-control" placeholder="e.g. 22CSE001" required></div>
+              <div class="form-group"><label for="addDept">Department (Optional)</label><input type="text" id="addDept" class="form-control" placeholder="e.g. CSE"></div>
+              <div class="form-group"><label for="addPhone">Phone Number (Optional)</label><input type="text" id="addPhone" class="form-control" placeholder="10-digit number"></div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-2">➕ Add Student</button>
+          </form>
+        </div>
+      </div>
     </div>
 
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="brand">
-            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-            <div class="logo-icon">🎓</div>
-            Admin Panel
+    <!-- UNPAID TAB -->
+    <div class="tab-panel" id="tab-unpaid">
+      <div class="section">
+        <h2 class="section-title">❌ Unpaid Students</h2>
+        <div class="toolbar" style="margin-bottom:12px;">
+          <input type="text" id="unpaidFilterInput" class="form-control" placeholder="🔍 Search by name, reg no, or department..." style="max-width:360px;" oninput="renderUnpaidTable()">
+          <button class="btn btn-outline" onclick="copyUnpaidPhones()">📋 Copy All Phones</button>
         </div>
-        <div style="flex:1; margin: 0 12px; max-width: 300px;" id="eventSelectWrapper" class="hidden">
-            <select id="activeEventId" class="form-control" onchange="switchEvent()"
-                style="font-weight:700; border-color:var(--primary); padding: 8px 12px; height: auto; font-size: 0.9rem;"></select>
-        </div>
-        <div class="nav-links">
-            <a href="index.html">📱 Student View</a>
-            <button onclick="logout()" id="logoutBtn">🚪 Logout</button>
-        </div>
-    </nav>
-
-
-    <!-- Page Content -->
-    <div class="page-wrapper">
-
-        <!-- ===== TAB: MANAGE STUDENTS ===== -->
-        <div class="tab-panel active" id="tab-manage">
-
-            <!-- Dashboard Stats (Moved here) -->
-            <div class="section">
-                <h2 class="section-title">📈 Event Overview</h2>
-                <div class="stats-grid" id="statsGrid">
-                    <div class="stat-card">
-                        <div class="stat-icon blue">⛹️</div>
-                        <div class="stat-info">
-                            <p>Total Students</p>
-                            <h3 id="totalCount">0</h3>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">🏆</div>
-                        <div class="stat-info">
-                            <p>Paid Students</p>
-                            <h3 id="paidCount">0</h3>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red">🛑</div>
-                        <div class="stat-info">
-                            <p>Unpaid Students</p>
-                            <h3 id="unpaidCount">0</h3>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon orange">📊</div>
-                        <div class="stat-info">
-                            <p>Payment Rate</p>
-                            <h3 id="paymentPercent">0%</h3>
-                        </div>
-                    </div>
-                    <!-- Monetary Stats -->
-                    <div class="stat-card">
-                        <div class="stat-icon blue">💵</div>
-                        <div class="stat-info">
-                            <p>Total Collected</p>
-                            <h3 id="totalCollected">₹0</h3>
-                        </div>
-                    </div>
-                    <div class="stat-card" style="border-top-color: var(--primary-team);">
-                        <div class="stat-icon green">🏦</div>
-                        <div class="stat-info">
-                            <p>Cash Collected</p>
-                            <h3 id="cashCollected">₹0</h3>
-                        </div>
-                    </div>
-                    <div class="stat-card" style="border-top-color: var(--accent-secondary);">
-                        <div class="stat-icon red">📱</div>
-                        <div class="stat-info">
-                            <p>UPI Collected</p>
-                            <h3 id="upiCollected">₹0</h3>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="charts-grid">
-                    <div class="chart-card glass-glow-card">
-                        <h3>📊 Payment Status Overview</h3>
-                        <div class="chart-container" id="pieChartContainer">
-                            <canvas id="pieChart"></canvas>
-                            <div class="chart-empty-state hidden" id="pieEmptyState">
-                                <div class="empty-icon">📂</div>
-                                <p>No payment data found</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chart-card glass-glow-card">
-                        <h3>🏫 Department-wise Students</h3>
-                        <div class="chart-container" id="barChartContainer">
-                            <canvas id="barChart"></canvas>
-                            <div class="chart-empty-state hidden" id="barEmptyState">
-                                <div class="empty-icon">👥</div>
-                                <p>No student records found</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h2 class="section-title">📥 Import & Export Data</h2>
-                <div class="toolbar">
-                    <!-- Upload Excel -->
-                    <div class="file-input-wrapper">
-                        <button class="btn btn-primary">📤 Upload Excel</button>
-                        <input type="file" id="excelUpload" accept=".xlsx,.xls" onchange="handleExcelUpload(event)">
-                    </div>
-                    <!-- Export Buttons -->
-                    <button class="btn btn-success" onclick="exportExcel('all')">📥 Export All</button>
-                    <button class="btn btn-success" onclick="exportExcel('paid')">📥 Export Paid</button>
-                    <button class="btn btn-danger" onclick="exportExcel('unpaid')">📥 Export Unpaid</button>
-                </div>
-                <p style="font-size:.85rem;color:var(--text-secondary);margin-top:8px;">
-                    Required Excel Columns: <strong>(1) Name | (2) RegNo</strong> | (3) Department | (4) Phone | (5)
-                    Amount
-                </p>
-            </div>
-
-            <div class="section">
-                <h2 class="section-title">➕ Add Student Manually</h2>
-                <div class="card">
-                    <form id="addStudentForm" onsubmit="return addStudent(event)">
-                        <div class="stats-grid"
-                            style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
-                            <div class="form-group">
-                                <label for="addName">Full Name *</label>
-                                <input type="text" id="addName" class="form-control" placeholder="Student name"
-                                    required>
-                            </div>
-                            <div class="form-group">
-                                <label for="addReg">Register Number *</label>
-                                <input type="text" id="addReg" class="form-control" placeholder="e.g. 22CSE001"
-                                    required>
-                            </div>
-                            <div class="form-group">
-                                <label for="addDept">Department (Optional)</label>
-                                <input type="text" id="addDept" class="form-control" placeholder="e.g. CSE">
-                            </div>
-                            <div class="form-group">
-                                <label for="addPhone">Phone Number (Optional)</label>
-                                <input type="text" id="addPhone" class="form-control" placeholder="10-digit number">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary mt-2">➕ Add Student</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== TAB: UNPAID LIST ===== -->
-        <div class="tab-panel" id="tab-unpaid">
-            <div class="section">
-                <h2 class="section-title">❌ Unpaid Students</h2>
-                <!-- [NEW FEATURE] Search filter + bulk copy phones for quick WhatsApp outreach -->
-                <div class="toolbar" style="margin-bottom:12px;">
-                    <input type="text" id="unpaidFilterInput" class="form-control"
-                        placeholder="🔍 Search by name, reg no, or department..."
-                        style="max-width:360px;" oninput="renderUnpaidTable()">
-                    <button class="btn btn-outline" onclick="copyUnpaidPhones()" title="Copy all unpaid phone numbers to clipboard">
-                        📋 Copy All Phones
-                    </button>
-                </div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Reg No</th>
-                                <th>Department</th>
-                                <th>Phone</th>
-                                <th>Amount</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="unpaidTableBody"></tbody>
-                    </table>
-                </div>
-                <p class="mt-2" id="unpaidEmptyMsg"
-                    style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
-            </div>
-        </div>
-
-        <!-- ===== TAB: ALL STUDENTS ===== -->
-        <div class="tab-panel" id="tab-allStudents">
-            <div class="section">
-                <h2 class="section-title">📄 All Students</h2>
-                <!-- Search filter -->
-                <div class="toolbar">
-                    <input type="text" id="filterInput" class="form-control"
-                        placeholder="🔍 Search by name, reg no, or department..." style="max-width:400px;"
-                        oninput="renderAllStudents()">
-                </div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Reg No</th>
-                                <th>Department</th>
-                                <th>Phone</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Payment</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="allStudentsTableBody"></tbody>
-                    </table>
-                </div>
-                <p class="mt-2" id="allStudentsEmptyMsg"
-                    style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
-            </div>
-        </div>
-
-        <!-- ===== TAB: CASH REQUESTS ===== -->
-        <div class="tab-panel" id="tab-cash">
-            <div class="section">
-                <h2 class="section-title">💵 Cash Payment Requests</h2>
-                <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px;">
-                    Students listed here have requested to pay by cash. Collect the cash physically, then click
-                    <strong>✅ Collect &amp; Mark Paid</strong>.
-                </p>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Reg No</th>
-                                <th>Department</th>
-                                <th>📱 Mobile</th>
-                                <th>Amount</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cashTableBody"></tbody>
-                    </table>
-                </div>
-                <p class="mt-2" id="cashEmptyMsg"
-                    style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
-            </div>
-        </div>
-
-        <!-- ===== TAB: EVENT / TRIP ===== -->
-        <div class="tab-panel" id="tab-event">
-            <div class="section">
-                <h2 class="section-title">📂 Manage Multiple Events</h2>
-                <div class="card mb-3">
-                    <h3 style="margin-bottom:16px;">➕ Create New Event</h3>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                        <div class="form-group">
-                            <label>Event Name *</label>
-                            <input type="text" id="eventName" class="form-control"
-                                placeholder="e.g. Industrial Visit 2026">
-                        </div>
-                        <div class="form-group">
-                            <label>Fee Amount (₹) *</label>
-                            <input type="number" id="eventAmount" class="form-control" placeholder="500">
-                        </div>
-                        <div class="form-group">
-                            <label>UPI ID or Phone *</label>
-                            <input type="text" id="eventUPI" class="form-control" placeholder="e.g. 9876543210 or user@upi">
-                        </div>
-                        <div class="form-group">
-                            <label>Event Date</label>
-                            <input type="date" id="eventDate" class="form-control">
-                        </div>
-                    </div>
-                    <div class="form-group mt-2">
-                        <label>Description</label>
-                        <textarea id="eventDescription" class="form-control" rows="2"></textarea>
-                    </div>
-                    <button class="btn btn-primary mt-2" onclick="createNewEvent()">🚀 Create Event</button>
-                </div>
-
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Event Name</th>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="eventsTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== TAB: NOTICE ===== -->
-        <div class="tab-panel" id="tab-notice">
-            <div class="section">
-                <h2 class="section-title">📢 Important Notice</h2>
-                <div class="card">
-                    <div class="form-group">
-                        <label for="noticeInput">Notice Message</label>
-                        <textarea id="noticeInput" class="form-control" rows="4"
-                            placeholder="Type an important notice for students..."></textarea>
-                    </div>
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                        <button class="btn btn-primary" onclick="saveNotice()">💾 Save Notice</button>
-                        <button class="btn btn-danger" onclick="deleteNotice()">🗑️ Delete Notice</button>
-                    </div>
-                    <div id="currentNotice" class="mt-3"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== TAB: SETTINGS ===== -->
-        <div class="tab-panel" id="tab-settings">
-            <div class="section">
-                <h2 class="section-title">⚙️ Settings</h2>
-                <div class="card">
-                    <div class="form-group">
-                        <label for="globalAmount">Update Fee Amount for All Students (₹)</label>
-                        <input type="number" id="globalAmount" class="form-control" placeholder="e.g. 500" min="0"
-                            style="max-width:300px;">
-                    </div>
-                    <button class="btn btn-primary" onclick="setGlobalAmount()">💾 Apply to All Students</button>
-                    <p class="mt-2" style="font-size:.8rem;color:var(--text-secondary);">
-                        This will update the fee amount for <strong>all</strong> students.
-                    </p>
-                </div>
-
-                <div class="card mt-3">
-                    <h3 class="card-header" style="margin-bottom:12px;">💳 Payment Settings</h3>
-                    <div class="form-group">
-                        <label for="globalUPI">Global UPI ID or Phone Number</label>
-                        <input type="text" id="globalUPI" class="form-control" placeholder="e.g. 9876543210 or user@upi"
-                            style="max-width:400px;">
-                    </div>
-                    <button class="btn btn-primary" onclick="saveGlobalUPI()">💾 Save UPI Number</button>
-                    <p class="mt-2" style="font-size:.8rem;color:var(--text-secondary);">
-                        Enter the 10-digit mobile number registered with UPI (e.g. GPay / PhonePe / Paytm).
-                    </p>
-                </div>
-
-                <div class="card mt-3">
-                    <h3 class="card-header" style="margin-bottom:12px;">🗑️ Danger Zone</h3>
-                    <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Student Data</button>
-                    <p class="mt-1" style="font-size:.8rem;color:var(--danger);">
-                        This action cannot be undone!
-                    </p>
-                </div>
-            </div>
-        </div>
+        <div class="table-wrapper"><table><thead><tr><th>#</th><th>Name</th><th>Reg No</th><th>Department</th><th>Phone</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="unpaidTableBody"></tbody></table></div>
+        <p class="mt-2" id="unpaidEmptyMsg" style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
+      </div>
     </div>
 
-    <!-- ===== MARK PAID MODAL ===== -->
-    <!-- [NEW FEATURE] Replaces hardcoded method:'upi' in markPaid() -->
-    <div class="modal-overlay hidden" id="markPaidModal">
-        <div class="modal" style="max-width:360px;">
-            <div class="modal-header">
-                <h3>✅ Mark as Paid</h3>
-                <button class="close-btn" onclick="document.getElementById('markPaidModal').classList.add('hidden')">✕</button>
-            </div>
-            <div class="modal-body">
-                <p id="markPaidStudentName" style="font-weight:700; font-size:1.1rem; margin-bottom:16px;"></p>
-                <p style="color:var(--text-secondary); font-size:.9rem; margin-bottom:16px;">Select the payment method:</p>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <button class="btn btn-primary" onclick="confirmMarkPaid('cash')" style="padding:16px; font-size:1rem;">💵 Cash</button>
-                    <button class="btn btn-outline" onclick="confirmMarkPaid('upi')" style="padding:16px; font-size:1rem;">💳 UPI</button>
-                </div>
-            </div>
+    <!-- PAID TAB -->
+    <div class="tab-panel" id="tab-paid">
+      <div class="section">
+        <h2 class="section-title">✅ Paid Students</h2>
+        <div class="toolbar" style="margin-bottom:12px;">
+          <input type="text" id="paidFilterInput" class="form-control" placeholder="🔍 Search by name, reg no, or department..." style="max-width:360px;" oninput="renderPaidTable()">
+          <button class="btn btn-success" onclick="exportExcel('paid')">📥 Export Paid</button>
         </div>
+        <div class="table-wrapper"><table><thead><tr><th>#</th><th>Name</th><th>Reg No</th><th>Department</th><th>Phone</th><th>Amount</th><th>Method</th></tr></thead><tbody id="paidTableBody"></tbody></table></div>
+        <p class="mt-2" id="paidEmptyMsg" style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
+      </div>
     </div>
 
-    <!-- ===== EDIT MODAL ===== -->
-    <div class="modal-overlay hidden" id="editModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>✏️ Edit Student</h3>
-                <button class="close-btn" onclick="closeEditModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="editIndex">
-                <div class="form-group">
-                    <label for="editName">Full Name</label>
-                    <input type="text" id="editName" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="editReg">Register Number</label>
-                    <input type="text" id="editReg" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="editDept">Department</label>
-                    <input type="text" id="editDept" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="editPhone">Phone Number</label>
-                    <input type="text" id="editPhone" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="editAmount">Amount (₹)</label>
-                    <input type="number" id="editAmount" class="form-control" min="0" required>
-                </div>
-                <div class="form-group">
-                    <label for="editPaid">Payment Status</label>
-                    <select id="editPaid" class="form-control">
-                        <option value="false">❌ Unpaid</option>
-                        <option value="true">✅ Paid</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="editMethod">Payment Method</label>
-                    <select id="editMethod" class="form-control">
-                        <option value="">None / Pending</option>
-                        <option value="cash">💵 Cash</option>
-                        <option value="upi">💳 UPI</option>
-                        <option value="cash_pending">⏳ Cash Pending</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
-            </div>
-        </div>
+    <!-- ALL STUDENTS TAB -->
+    <div class="tab-panel" id="tab-allStudents">
+      <div class="section">
+        <h2 class="section-title">📄 All Students</h2>
+        <div class="toolbar"><input type="text" id="filterInput" class="form-control" placeholder="🔍 Search by name, reg no, or department..." style="max-width:400px;" oninput="renderAllStudents()"></div>
+        <div class="table-wrapper"><table><thead><tr><th>#</th><th>Name</th><th>Reg No</th><th>Department</th><th>Phone</th><th>Amount</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead><tbody id="allStudentsTableBody"></tbody></table></div>
+        <p class="mt-2" id="allStudentsEmptyMsg" style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
+      </div>
     </div>
 
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <!-- CASH TAB -->
+    <div class="tab-panel" id="tab-cash">
+      <div class="section">
+        <h2 class="section-title">💵 Cash Payment Requests</h2>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px;">Students listed here have requested to pay by cash. Collect the cash physically, then click <strong>✅ Collect &amp; Mark Paid</strong>.</p>
+        <div class="table-wrapper"><table><thead><tr><th>#</th><th>Name</th><th>Reg No</th><th>Department</th><th>📱 Mobile</th><th>Amount</th><th>Action</th></tr></thead><tbody id="cashTableBody"></tbody></table></div>
+        <p class="mt-2" id="cashEmptyMsg" style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
+      </div>
+    </div>
 
-    <!-- Project Scripts -->
-    <script src="firebase-config.js"></script>
-    <script src="script.js?v=2.1"></script>
+    <!-- EVENT TAB -->
+    <div class="tab-panel" id="tab-event">
+      <div class="section">
+        <h2 class="section-title">📂 Manage Multiple Events</h2>
+        <div class="card mb-3">
+          <h3 style="margin-bottom:16px;">➕ Create New Event</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+            <div class="form-group"><label>Event Name *</label><input type="text" id="eventName" class="form-control" placeholder="e.g. Industrial Visit 2026"></div>
+            <div class="form-group"><label>Fee Amount (₹) *</label><input type="number" id="eventAmount" class="form-control" placeholder="500"></div>
+            <div class="form-group"><label>UPI ID or Phone *</label><input type="text" id="eventUPI" class="form-control" placeholder="e.g. 9876543210 or user@upi"></div>
+            <div class="form-group"><label>Event Date</label><input type="date" id="eventDate" class="form-control"></div>
+          </div>
+          <div class="form-group mt-2"><label>Description</label><textarea id="eventDescription" class="form-control" rows="2"></textarea></div>
+          <button class="btn btn-primary mt-2" onclick="createNewEvent()">🚀 Create Event</button>
+        </div>
+        <div class="table-wrapper"><table><thead><tr><th>Event Name</th><th>Date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eventsTableBody"></tbody></table></div>
+      </div>
+    </div>
 
-    <script>
-        /* ============================================
-           ADMIN PAGE INITIALIZATION
-           ============================================ */
+    <!-- NOTICE TAB -->
+    <div class="tab-panel" id="tab-notice">
+      <div class="section">
+        <h2 class="section-title">📢 Notice</h2>
+        <div class="card">
+          <div class="form-group"><label for="noticeInput">Notice Message</label><textarea id="noticeInput" class="form-control" rows="4" placeholder="Type an important notice..."></textarea></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="saveNotice()">💾 Save Notice</button>
+            <button class="btn btn-danger" onclick="deleteNotice()">🗑️ Delete Notice</button>
+          </div>
+          <div id="currentNotice" class="mt-3"></div>
+        </div>
+      </div>
+    </div>
 
-        // Multi-event state
-        let currentEventId = null;
-        let lastSubscribedEventId = null; // Track which event we are actually listening to
-        let eventPayments = {};
-        let unsubscribeEvents = null;
-        let unsubscribePayments = null;
+    <!-- SETTINGS TAB -->
+    <div class="tab-panel" id="tab-settings">
+      <div class="section">
+        <h2 class="section-title">⚙️ Settings</h2>
+        <div class="card">
+          <div class="form-group"><label for="globalAmount">Update Fee Amount (₹)</label><input type="number" id="globalAmount" class="form-control" placeholder="e.g. 500" min="0" style="max-width:300px;"></div>
+          <button class="btn btn-primary" onclick="setGlobalAmount()">💾 Apply</button>
+        </div>
+        <div class="card mt-3">
+          <h3 style="margin-bottom:12px;">💳 Payment Settings</h3>
+          <div class="form-group"><label for="globalUPI">Global UPI ID or Phone</label><input type="text" id="globalUPI" class="form-control" placeholder="e.g. 9876543210" style="max-width:400px;"></div>
+          <div class="form-group"><label for="adminNameInput">Managing Admin Name</label><input type="text" id="adminNameInput" class="form-control" placeholder="e.g. Mr. Arun" style="max-width:400px;"></div>
+          <button class="btn btn-primary" onclick="saveAdminSettings()">💾 Save Settings</button>
+        </div>
+        <div class="card mt-3">
+          <h3 style="margin-bottom:12px;">🛠️ Database Maintenance</h3>
+          <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px;">Use the setup utility to verify your Firebase connection and initialize basic data.</p>
+          <a href="firebase-setup.html" class="btn btn-outline" style="text-decoration:none;">🚀 Open Firebase Setup Utility</a>
+        </div>
+        <div class="card mt-3">
+          <h3 style="margin-bottom:12px;">🗑️ Danger Zone</h3>
+          <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Student Data</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        /**
-         * Initialize the admin dashboard
-         */
-        async function initDashboard() {
-            // Subscribe to Events (Real-time)
-            if (unsubscribeEvents) unsubscribeEvents();
-            unsubscribeEvents = window.subscribeToEvents(async (events) => {
-                console.log("Events updated via snapshot:", events);
+  <!-- MARK PAID MODAL -->
+  <div class="modal-overlay hidden" id="markPaidModal">
+    <div class="modal" style="max-width:360px;">
+      <div class="modal-header"><h3>✅ Mark as Paid</h3><button class="close-btn" onclick="document.getElementById('markPaidModal').classList.add('hidden')">✕</button></div>
+      <div class="modal-body">
+        <p id="markPaidStudentName" style="font-weight:700;font-size:1.1rem;margin-bottom:16px;"></p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <button class="btn btn-primary" onclick="confirmMarkPaid('cash')" style="padding:16px;">💵 Cash</button>
+          <button class="btn btn-outline" onclick="confirmMarkPaid('upi')" style="padding:16px;">💳 UPI</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                // Migration: If no events exist but legacy settings do, create an event
-                if (events.length === 0) {
-                    const legacy = await getEvent(); // Fallback check
-                    if (legacy && legacy.name) {
-                        legacy.id = "event_legacy";
-                        legacy.status = 'active';
-                        await saveEvent(legacy);
-                        return; // Snapshot will trigger again
-                    }
-                }
+  <!-- EDIT MODAL -->
+  <div class="modal-overlay hidden" id="editModal">
+    <div class="modal">
+      <div class="modal-header"><h3>✏️ Edit Student</h3><button class="close-btn" onclick="closeEditModal()">✕</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="editIndex">
+        <div class="form-group"><label>Full Name</label><input type="text" id="editName" class="form-control"></div>
+        <div class="form-group"><label>Reg No</label><input type="text" id="editReg" class="form-control"></div>
+        <div class="form-group"><label>Dept</label><input type="text" id="editDept" class="form-control"></div>
+        <div class="form-group"><label>Phone</label><input type="text" id="editPhone" class="form-control"></div>
+        <div class="form-group"><label>Amount (₹)</label><input type="number" id="editAmount" class="form-control"></div>
+        <div class="form-group"><label>Paid</label><select id="editPaid" class="form-control"><option value="false">❌ Unpaid</option><option value="true">✅ Paid</option></select></div>
+        <div class="form-group"><label>Method</label><select id="editMethod" class="form-control"><option value="">None</option><option value="cash">💵 Cash</option><option value="upi">💳 UPI</option><option value="cash_pending">⏳ Cash Pending</option></select></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" onclick="closeEditModal()">Cancel</button><button class="btn btn-primary" onclick="saveEdit()">💾 Save</button></div>
+    </div>
+  </div>
 
-                if (events.length > 0) {
-                    document.getElementById('eventSelectWrapper').classList.remove('hidden');
-                    const select = document.getElementById('activeEventId');
-                    const prevValue = select.value;
-                    select.innerHTML = events.map(e => `<option value="${e.id}">${escapeHTML(e.name)}</option>`).join('');
+  <!-- EDIT EVENT MODAL -->
+  <div class="modal-overlay hidden" id="editEventModal">
+    <div class="modal">
+      <div class="modal-header"><h3>✏️ Edit Event</h3><button class="close-btn" onclick="document.getElementById('editEventModal').classList.add('hidden')">✕</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="editEventId">
+        <div class="form-group"><label>Event Name</label><input type="text" id="editEventName" class="form-control" required></div>
+        <div class="form-group"><label>Fee Amount (₹)</label><input type="number" id="editEventAmount" class="form-control" required></div>
+        <div class="form-group"><label>UPI ID or Phone</label><input type="text" id="editEventUPI" class="form-control" required></div>
+        <div class="form-group"><label>Event Date</label><input type="date" id="editEventDate" class="form-control"></div>
+        <div class="form-group"><label>Description</label><textarea id="editEventDescription" class="form-control" rows="3"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="document.getElementById('editEventModal').classList.add('hidden')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditEvent()">💾 Save Changes</button>
+      </div>
+    </div>
+  </div>
 
-                    if (!currentEventId) {
-                        const active = events.find(e => e.status === 'active') || events[0];
-                        currentEventId = active.id;
-                    }
-                    select.value = currentEventId;
+  <div class="toast-container" id="toastContainer"></div>
 
-                    // If we were on an event that was deleted, switch back to active
-                    if (!events.some(e => e.id === currentEventId)) {
-                        const active = events.find(e => e.status === 'active') || events[0];
-                        currentEventId = active.id;
-                        select.value = currentEventId;
-                    }
+  <script src="firebase-config.js"></script>
+  <script src="script.js"></script>
+  <script>
+    /* ============================================
+       ADMIN PAGE LOGIC
+       ============================================ */
+    let currentEventId = null, eventPayments = {}, unsubscribeEvents = null, unsubscribePayments = null;
 
-                    // Subscribe to Payments for the current event
-                    setupPaymentSubscription(currentEventId);
-                }
-
-                // Update management table if in the tab
-                const activeTab = document.querySelector('.tab-panel.active').id;
-                if (activeTab === 'tab-event') renderEventsTable();
-            });
-
-            await loadNoticeAdmin();
-            await loadGlobalAmount();
-            await loadGlobalUPI();
+    async function initDashboard() {
+      if (unsubscribeEvents) unsubscribeEvents();
+      unsubscribeEvents = window.subscribeToEvents(async (events) => {
+        if (events.length > 0) {
+          document.getElementById('eventSelectWrapper').classList.remove('hidden');
+          const sel = document.getElementById('activeEventId');
+          sel.innerHTML = events.map(e => `<option value="${e.id}">${window.escapeHTML(e.name)}</option>`).join('');
+          if (!currentEventId) {
+            const a = events.find(e => e.status === 'active') || events[0];
+            currentEventId = a.id;
+          }
+          sel.value = currentEventId;
+          setupPaymentSubscription(currentEventId);
         }
+        if (document.querySelector('.tab-panel.active')?.id === 'tab-event') renderEventsTable();
+      });
+      loadNoticeAdmin();
+    }
 
-        function setupPaymentSubscription(eventId) {
-            if (!eventId) return;
-            // Don't re-subscribe if already listening to the same event
-            if (unsubscribePayments && lastSubscribedEventId === eventId) {
-                refreshAll();
-                return;
-            }
+    function setupPaymentSubscription(eventId) {
+      if (!eventId) return;
+      if (unsubscribePayments) unsubscribePayments();
+      unsubscribePayments = window.subscribeToPayments(eventId, (payments) => {
+        eventPayments = payments;
+        refreshAll();
+      });
+    }
 
-            if (unsubscribePayments) {
-                console.log("Unsubscribing from previous event:", lastSubscribedEventId);
-                unsubscribePayments();
-            }
+    async function switchEvent() {
+      currentEventId = document.getElementById('activeEventId').value;
+      setupPaymentSubscription(currentEventId);
+      window.showToast('Event switched', 'event-switch', 2000);
+    }
 
-            lastSubscribedEventId = eventId;
-            console.log("Subscribing to payments for:", eventId);
-            unsubscribePayments = window.subscribeToPayments(eventId, (payments) => {
-                console.log("Payments updated via snapshot for:", eventId);
-                eventPayments = payments;
-                refreshAll();
-            });
+    async function updateStats() {
+      if (!currentEventId) return;
+      const students = await window.getStudents();
+      const total = students.length;
+      let paidCnt = 0, cashAmt = 0, upiAmt = 0, totalAmt = 0;
+      
+      students.forEach(s => {
+        const p = eventPayments[s.reg.toUpperCase()];
+        if (p && p.paid) {
+          paidCnt++;
+          const a = Number(p.amount) || 0;
+          totalAmt += a;
+          if (p.method === 'cash') cashAmt += a;
+          else if (p.method === 'upi') upiAmt += a;
         }
+      });
+      
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('paidCount').textContent = paidCnt;
+      document.getElementById('unpaidCount').textContent = total - paidCnt;
+      document.getElementById('paymentPercent').textContent = (total > 0 ? Math.round((paidCnt / total) * 100) : 0) + '%';
+      document.getElementById('totalCollected').textContent = '₹' + totalAmt;
+      document.getElementById('cashCollected').textContent = '₹' + cashAmt;
+      document.getElementById('upiCollected').textContent = '₹' + upiAmt;
+    }
 
-        async function switchEvent() {
-            const select = document.getElementById('activeEventId');
-            currentEventId = select.value;
-            const eventName = select.options[select.selectedIndex].text;
+    async function renderCharts() {
+      if (!currentEventId || typeof Chart === 'undefined') return;
+      const students = await window.getStudents();
+      let paidCnt = 0;
+      students.forEach(s => { if (eventPayments[s.reg.toUpperCase()]?.paid) paidCnt++; });
+      const unpaidCnt = students.length - paidCnt;
+      
+      const pieEl = document.getElementById('pieChart'), barEl = document.getElementById('barChart');
+      if (window._pieChart) window._pieChart.destroy();
+      if (window._barChart) window._barChart.destroy();
+      
+      window._pieChart = new Chart(pieEl, {
+        type: 'doughnut',
+        data: { labels: ['Paid', 'Unpaid'], datasets: [{ data: [paidCnt, unpaidCnt], backgroundColor: ['#1D428A', '#F87171'] }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+      
+      const deptMap = {};
+      students.forEach(s => { const d = s.department || 'Other'; deptMap[d] = (deptMap[d] || 0) + 1; });
+      window._barChart = new Chart(barEl, {
+        type: 'bar',
+        data: { labels: Object.keys(deptMap), datasets: [{ label: 'Students', data: Object.values(deptMap), backgroundColor: '#1D428A' }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
 
-            setupPaymentSubscription(currentEventId);
-            showToast(`Switched to: ${eventName}`, 'event-switch', 2500);
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + tabName).classList.add('active');
+      
+      const btnMap = { manage: 0, unpaid: 1, paid: 2, allStudents: 3, cash: 4, event: 5, notice: 6, settings: 7 };
+      const idx = btnMap[tabName];
+      if (idx !== undefined) document.querySelectorAll('.sidebar-item')[idx].classList.add('active');
+      
+      if (tabName === 'manage') refreshAll();
+      if (tabName === 'unpaid') renderUnpaidTable();
+      if (tabName === 'paid') renderPaidTable();
+      if (tabName === 'allStudents') renderAllStudents();
+      if (tabName === 'cash') renderCashTable();
+      if (tabName === 'event') renderEventsTable();
+      if (window.innerWidth <= 992) toggleSidebar();
+    }
+
+    async function addStudent(e) {
+      e.preventDefault();
+      const n = document.getElementById('addName').value.trim(), r = document.getElementById('addReg').value.trim(), d = document.getElementById('addDept').value.trim(), p = document.getElementById('addPhone').value.trim();
+      if (!n || !r) return;
+      await window.saveStudent({ name: n, reg: r, department: d, phone: p });
+      document.getElementById('addStudentForm').reset();
+      refreshAll();
+      window.showToast('Added');
+    }
+
+    async function handleExcelUpload(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = async (ev) => {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+        const existing = await window.getStudents();
+        const newly = [];
+        for (let i = 1; i < rows.length; i++) {
+          if (rows[i][0] && rows[i][1]) newly.push({ name: rows[i][0], reg: String(rows[i][1]), department: rows[i][2] || '', phone: rows[i][3] || '' });
         }
+        await window.saveStudents([...existing, ...newly]);
+        refreshAll();
+        window.showToast('Imported');
+      };
+      r.readAsArrayBuffer(f);
+    }
 
-        /* ---------- STATS ---------- */
-        async function updateStats() {
-            if (!currentEventId) return;
-            // No need to fetch payments, using the global eventPayments from snapshot
-            const students = await getStudents();
-            const total = students.length;
+    async function renderUnpaidTable() {
+      const students = await window.getStudents();
+      const filter = document.getElementById('unpaidFilterInput').value.toLowerCase();
+      const unpaid = students.filter(s => {
+        const p = eventPayments[s.reg.toUpperCase()];
+        const matches = s.name.toLowerCase().includes(filter) || s.reg.toLowerCase().includes(filter) || (s.department && s.department.toLowerCase().includes(filter));
+        return !p?.paid && matches;
+      });
+      document.getElementById('unpaidTableBody').innerHTML = unpaid.map((s, i) => `<tr><td>${i + 1}</td><td>${s.name}</td><td>${s.reg}</td><td>${s.department}</td><td>${s.phone}</td><td>-</td><td><button class="btn btn-warning btn-sm" onclick="markPaid('${s.reg}')">✅ Paid</button></td></tr>`).join('');
+    }
 
-            let paidCount = 0;
-            let cashAmt = 0;
-            let upiAmt = 0;
-            let totalAmt = 0;
+    async function renderPaidTable() {
+      const students = await window.getStudents();
+      const filter = document.getElementById('paidFilterInput').value.toLowerCase();
+      const paid = students.filter(s => {
+        const p = eventPayments[s.reg.toUpperCase()];
+        const matches = s.name.toLowerCase().includes(filter) || s.reg.toLowerCase().includes(filter) || (s.department && s.department.toLowerCase().includes(filter));
+        return p?.paid && matches;
+      });
+      document.getElementById('paidTableBody').innerHTML = paid.map((s, i) => {
+        const p = eventPayments[s.reg.toUpperCase()];
+        return `<tr><td>${i + 1}</td><td>${s.name}</td><td>${s.reg}</td><td>${s.department}</td><td>${s.phone}</td><td>₹${p.amount}</td><td>${p.method || '-'}</td></tr>`;
+      }).join('');
+    }
 
-            students.forEach(s => {
-                const pay = eventPayments[s.reg];
-                if (pay && pay.paid) {
-                    paidCount++;
-                    const amt = Number(pay.amount) || 0;
-                    totalAmt += amt;
-                    if (pay.method === 'cash') cashAmt += amt;
-                    else if (pay.method === 'upi') upiAmt += amt;
-                }
-            });
+    async function renderAllStudents() {
+      const students = await window.getStudents();
+      document.getElementById('allStudentsTableBody').innerHTML = students.map((s, i) => {
+        const p = eventPayments[s.reg.toUpperCase()] || {};
+        return `<tr><td>${i + 1}</td><td>${s.name}</td><td>${s.reg}</td><td>${s.department}</td><td>${s.phone}</td><td>${p.amount || '-'}</td><td>${p.paid ? 'Paid' : 'Unpaid'}</td><td>${p.method || '-'}</td><td><button class="btn btn-primary btn-sm" onclick="openEditModal('${s.reg}')">✏️</button></td></tr>`;
+      }).join('');
+    }
 
-            const unpaid = total - paidCount;
-            const percent = total > 0 ? Math.round((paidCount / total) * 100) : 0;
+    let _mpReg = null;
+    function markPaid(reg) { _mpReg = reg; document.getElementById('markPaidModal').classList.remove('hidden'); }
+    async function confirmMarkPaid(method) {
+      const evs = await window.getEvents();
+      const ev = evs.find(e => e.id === currentEventId);
+      await window.savePayment(currentEventId, _mpReg, { paid: true, method, amount: ev.amount, timestamp: Date.now() });
+      document.getElementById('markPaidModal').classList.add('hidden');
+      refreshAll();
+    }
 
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('paidCount').textContent = paidCount;
-            document.getElementById('unpaidCount').textContent = unpaid;
-            document.getElementById('paymentPercent').textContent = percent + '%';
-
-            document.getElementById('totalCollected').textContent = '₹' + totalAmt;
-            document.getElementById('cashCollected').textContent = '₹' + cashAmt;
-            document.getElementById('upiCollected').textContent = '₹' + upiAmt;
+    async function renderCashTable() {
+      const students = await window.getStudents();
+      const cash = students.filter(s => eventPayments[s.reg.toUpperCase()]?.method === 'cash_pending');
+      document.getElementById('cashTableBody').innerHTML = cash.map((s, i) => {
+        const p = eventPayments[s.reg.toUpperCase()];
+        return `<tr><td>${i + 1}</td><td>${s.name}</td><td>${s.reg}</td><td>${s.department}</td><td>${p.phone || s.phone || '-'}</td><td>${p.amount}</td><td><button class="btn btn-success btn-sm" onclick="approveCash('${s.reg}')">✅ Collect</button></td></tr>`;
+      }).join('');
+    }
+    async function approveCash(reg) {
+      const regUpper = reg.toUpperCase();
+      const p = eventPayments[regUpper];
+      if (!p) return;
+      
+      // Update student record with phone from payment (if student didn't already have one)
+      if (p.phone) {
+        const students = await window.getStudents();
+        const student = students.find(s => s.reg.toUpperCase() === regUpper);
+        if (student && !student.phone) {
+          student.phone = p.phone;
+          await window.saveStudent(student); // Admin can save student data
         }
-
-        /* ---------- CHARTS ---------- */
-        async function renderCharts() {
-            if (!currentEventId) return;
-            if (typeof Chart === 'undefined') {
-                console.warn("Chart.js not loaded yet. Retrying...");
-                setTimeout(renderCharts, 500);
-                return;
-            }
-
-            const students = await getStudents();
-            let paidCount = 0;
-            students.forEach(s => {
-                const pay = eventPayments && eventPayments[s.reg];
-                if (pay && pay.paid) paidCount++;
-            });
-            const unpaidCount = students.length - paidCount;
-
-            const pieEl = document.getElementById('pieChart');
-            const barEl = document.getElementById('barChart');
-            const pieEmpty = document.getElementById('pieEmptyState');
-            const barEmpty = document.getElementById('barEmptyState');
-
-            if (!pieEl || !barEl) {
-                console.warn("Chart elements not found yet, retrying...");
-                setTimeout(renderCharts, 200);
-                return;
-            }
-
-            // Ensure we are not rendering in a hidden/zero-size container
-            if (pieEl.offsetParent === null) {
-                console.log("Chart is in hidden tab, skipping render");
-                return;
-            }
-
-            // Cleanup existing charts
-            if (window.pieChart) window.pieChart.destroy();
-            if (window.barChart) window.barChart.destroy();
-
-            // Toggle empty states
-            if (!students || students.length === 0) {
-                pieEl.classList.add('hidden');
-                barEl.classList.add('hidden');
-                if (pieEmpty) pieEmpty.classList.remove('hidden');
-                if (barEmpty) barEmpty.classList.remove('hidden');
-                return;
-            } else {
-                pieEl.classList.remove('hidden');
-                barEl.classList.remove('hidden');
-                if (pieEmpty) pieEmpty.classList.add('hidden');
-                if (barEmpty) barEmpty.classList.add('hidden');
-            }
-
-            const pieCtx = pieEl.getContext('2d');
-
-            window.pieChart = new Chart(pieCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Paid', 'Unpaid'],
-                    datasets: [{
-                        data: [paidCount, unpaidCount],
-                        backgroundColor: ['#1D428A', '#F87171'],
-                        borderWidth: 2,
-                        borderColor: '#ffffff',
-                        hoverOffset: 12
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#6B7280', padding: 20, usePointStyle: true, font: { size: 12, weight: '600' } } }
-                    },
-                    cutout: '70%',
-                    animation: {
-                        duration: 1000,
-                        easing: 'easeOutQuart'
-                    }
-                }
-            });
-
-            // Bar chart — department-wise (Total Students)
-            const deptMap = {};
-            students.forEach(s => {
-                const dept = s.department || 'Not Set';
-                deptMap[dept] = (deptMap[dept] || 0) + 1;
-            });
-            const deptLabels = Object.keys(deptMap);
-            const deptValues = Object.values(deptMap);
-            const barColors = deptLabels.map((_, i) => ['#1D428A', '#F58426', '#00471B', '#EF426F', '#FFD100'][i % 5]);
-
-            const barCtx = barEl.getContext('2d');
-
-            window.barChart = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: deptLabels,
-                    datasets: [{
-                        label: 'Students',
-                        data: deptValues,
-                        backgroundColor: barColors,
-                        borderRadius: 8,
-                        barThickness: 'flex'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1A1D23',
-                            padding: 12,
-                            titleFont: { size: 14, weight: 'bold' },
-                            bodyFont: { size: 13 }
-                        }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { color: '#6B7280', stepSize: 1 }, grid: { color: '#E5E7EB', drawBorder: false } },
-                        x: { ticks: { color: '#6B7280' }, grid: { display: false } }
-                    },
-                    layout: { padding: { top: 10 } },
-                    animation: {
-                        duration: 1200,
-                        easing: 'easeOutQuart'
-                    }
-                }
-            });
-        }
-
-        /* ---------- TABS ---------- */
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-
-            const buttons = document.querySelectorAll('.sidebar-item');
-            const tabMap = ['manage', 'unpaid', 'allStudents', 'cash', 'event', 'notice', 'settings'];
-            const idx = tabMap.indexOf(tabName);
-            if (idx >= 0 && buttons[idx]) buttons[idx].classList.add('active');
-
-            if (tabName === 'manage') {
-                updateStats();
-                // Delay slightly to ensure tab visibility for Chart.js
-                setTimeout(renderCharts, 100);
-            }
-
-            // Close sidebar on mobile after clicking
-            if (window.innerWidth <= 992) {
-                const sidebar = document.querySelector('.sidebar');
-                if (sidebar) sidebar.classList.remove('open');
-            }
-            if (tabName === 'unpaid') renderUnpaidTable();
-            if (tabName === 'allStudents') renderAllStudents();
-            if (tabName === 'cash') renderCashTable();
-            if (tabName === 'notice') loadNoticeAdmin();
-            if (tabName === 'event') renderEventsTable();
-        }
-
-        /* ---------- ADD STUDENT ---------- */
-        async function addStudent(e) {
-            e.preventDefault();
-            const name = sanitize(document.getElementById('addName').value.trim());
-            const reg = sanitize(document.getElementById('addReg').value.trim());
-            const department = sanitize(document.getElementById('addDept').value.trim()) || '';
-            const phone = sanitize(document.getElementById('addPhone').value.trim()) || '';
-
-            // Get amount from event settings or global amount
-            const event = await getEvent();
-            const globalAmt = localStorage.getItem('global_amount');
-            const amount = event.amount ? Number(event.amount) : (globalAmt ? Number(globalAmt) : 0);
-
-            if (!name || !reg) {
-                showToast('Please enter Name and Register Number', 'warning');
-                return false;
-            }
-            if (phone && !/^\d{10}$/.test(phone)) {
-                showToast('Phone number must be 10 digits', 'warning');
-                return false;
-            }
-
-            const students = await getStudents();
-            if (students.find(s => s.reg.toLowerCase() === reg.toLowerCase())) {
-                showToast('A student with this register number already exists!', 'error');
-                return false;
-            }
-
-            const newStudent = { name, reg, department, phone, amount, paid: false };
-            await saveStudent(newStudent);
-            document.getElementById('addStudentForm').reset();
-            await refreshAll();
-            showToast('Student added successfully!', 'success');
-            return false;
-        }
-
-        /* ---------- EXCEL UPLOAD ---------- */
-        // [IMPROVEMENT] Now collects all rows first, then calls saveStudents() once,
-        // which uses Firestore batch writes instead of N sequential round-trips.
-        async function handleExcelUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-                    if (rows.length < 2) {
-                        showToast('Excel file is empty or has no data rows', 'warning');
-                        return;
-                    }
-
-                    const existingStudents = await getStudents();
-                    const existingRegs = new Set(existingStudents.map(s => String(s.reg).toLowerCase()));
-
-                    const evLocal = await getEvent();
-                    const globalAmt = localStorage.getItem('global_amount');
-                    const defaultAmount = evLocal.amount ? Number(evLocal.amount) : (globalAmt ? Number(globalAmt) : 0);
-
-                    const newStudents = [];
-                    let skipped = 0;
-
-                    for (let i = 1; i < rows.length; i++) {
-                        const row = rows[i];
-                        if (!row || row.length < 2) { skipped++; continue; }
-
-                        const name = sanitize(String(row[0] || '').trim());
-                        const reg  = sanitize(String(row[1] || '').trim());
-                        if (!name || !reg) { skipped++; continue; }
-
-                        const department = row[2] ? sanitize(String(row[2]).trim()) : '';
-                        const phone      = row[3] ? sanitize(String(row[3]).trim()) : '';
-
-                        let amount = defaultAmount;
-                        if (row[4] !== undefined && row[4] !== '') {
-                            const parsed = Number(row[4]);
-                            if (!isNaN(parsed)) amount = parsed;
-                        }
-
-                        newStudents.push({ name, reg, department, phone, amount });
-                    }
-
-                    if (newStudents.length === 0) {
-                        showToast('No valid rows found in the file.', 'warning');
-                        event.target.value = '';
-                        return;
-                    }
-
-                    // Merge: overwrite existing by reg, append new ones
-                    const merged = [...existingStudents];
-                    for (const ns of newStudents) {
-                        const idx = merged.findIndex(s => String(s.reg).toLowerCase() === String(ns.reg).toLowerCase());
-                        if (idx >= 0) merged[idx] = { ...merged[idx], ...ns };
-                        else merged.push(ns);
-                    }
-
-                    await saveStudents(merged);
-                    await refreshAll();
-
-                    showToast(`✅ Imported ${newStudents.length} students!`, 'success');
-                    if (skipped > 0) showToast(`${skipped} invalid rows skipped.`, 'warning');
-                } catch (err) {
-                    console.error('Excel Import Error:', err);
-                    showToast('Import failed: ' + err.message, 'error');
-                }
-                event.target.value = '';
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        /* ---------- EXCEL EXPORT ---------- */
-        // [BUGFIX] Previously filtered by s.paid (always false on student object) instead
-        // of eventPayments[s.reg]?.paid, causing paid/unpaid exports to always be wrong.
-        // [IMPROVEMENT] Export now includes Payment Method and Paid At timestamp.
-        async function exportExcel(type) {
-            let students = await getStudents();
-            const events = await getEvents();
-            const ev = events.find(e => e.id === currentEventId) || await getEvent();
-            let filename = (ev.name ? ev.name.replace(/[^a-zA-Z0-9]/g, '_') + '_' : '') + 'all_students.xlsx';
-
-            if (type === 'paid') {
-                students = students.filter(s => eventPayments[s.reg]?.paid);
-                filename = (ev.name ? ev.name.replace(/[^a-zA-Z0-9]/g, '_') + '_' : '') + 'paid_students.xlsx';
-            } else if (type === 'unpaid') {
-                students = students.filter(s => !eventPayments[s.reg]?.paid);
-                filename = (ev.name ? ev.name.replace(/[^a-zA-Z0-9]/g, '_') + '_' : '') + 'unpaid_students.xlsx';
-            }
-
-            if (students.length === 0) {
-                showToast('No students to export', 'warning');
-                return;
-            }
-
-            const exportData = students.map(s => {
-                const pay = eventPayments[s.reg] || {};
-                const paidStatus = pay.paid ? 'Paid' : (pay.method === 'cash_pending' ? 'Cash Pending' : 'Unpaid');
-                const method = pay.paid
-                    ? (pay.method === 'cash' ? 'Cash' : 'UPI')
-                    : (pay.method === 'cash_pending' ? 'Cash Pending' : '');
-                return {
-                    'Name': s.name,
-                    'RegNo': s.reg,
-                    'Department': s.department || '',
-                    'Phone': s.phone || '',
-                    'Amount': pay.amount || ev.amount || s.amount || '',
-                    'Status': paidStatus,
-                    'Payment Method': method,
-                    'Paid At': pay.timestamp ? new Date(pay.timestamp).toLocaleString() : ''
-                };
-            });
-
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Students');
-            XLSX.writeFile(wb, filename);
-            showToast(`Exported ${students.length} students to ${filename}`, 'success');
-        }
-
-        /* ---------- UNPAID TABLE ---------- */
-        async function renderUnpaidTable() {
-            if (!currentEventId) return;
-            const students = await getStudents();
-            const filter = (document.getElementById('unpaidFilterInput')?.value || '').toLowerCase();
-            let unpaid = students.filter(s => !eventPayments[s.reg]?.paid);
-
-            // Apply search filter if present
-            if (filter) {
-                unpaid = unpaid.filter(s =>
-                    (String(s.name || '')).toLowerCase().includes(filter) ||
-                    (String(s.reg || '')).toLowerCase().includes(filter) ||
-                    (String(s.department || '')).toLowerCase().includes(filter)
-                );
-            }
-
-            const tbody = document.getElementById('unpaidTableBody');
-            const emptyMsg = document.getElementById('unpaidEmptyMsg');
-
-            if (unpaid.length === 0) {
-                tbody.innerHTML = '';
-                emptyMsg.textContent = filter
-                    ? '🔍 No matching unpaid students.'
-                    : '🎉 All students have paid for this event!';
-                return;
-            }
-
-            emptyMsg.textContent = '';
-            const events = await getEvents();
-            const ev = events.find(e => e.id === currentEventId) || {};
-            const eventLabel = ev.name || 'this event';
-
-            tbody.innerHTML = unpaid.map((s, i) => {
-                const reminderMsg = `Hello ${s.name},\nYou have not paid the ${eventLabel} fee ₹${ev.amount}.\nPlease pay immediately.\nThank you.`;
-                const whatsappLink = `https://wa.me/91${cleanPhone(s.phone)}?text=${encodeURIComponent(reminderMsg)}`;
-                const smsLink = `sms:+91${cleanPhone(s.phone)}?body=${encodeURIComponent(reminderMsg)}`;
-                const hasPhone = s.phone && cleanPhone(s.phone).length >= 10;
-                return `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${escapeHTML(s.name)}</td>
-            <td>${escapeHTML(s.reg)}</td>
-            <td>${escapeHTML(s.department || '-')}</td>
-            <td>${escapeHTML(s.phone || '-')}</td>
-            <td>₹${ev.amount}</td>
-            <td style="display:flex;flex-wrap:wrap;gap:4px;">
-              ${hasPhone ? `<a href="${smsLink}" class="btn btn-primary btn-sm" title="Send SMS">📩 SMS</a>` : ''}
-              ${hasPhone ? `<a href="${whatsappLink}" target="_blank" class="btn btn-success btn-sm" title="Send WhatsApp">💬 WhatsApp</a>` : ''}
-              <button class="btn btn-warning btn-sm" onclick="markPaid('${escapeHTML(s.reg)}')" title="Mark as Paid">
-                ✅ Paid
-              </button>
-            </td>
-          </tr>`;
-            }).join('');
-        }
-
-        /* [NEW FEATURE] Copy all unpaid student phone numbers to clipboard */
-        async function copyUnpaidPhones() {
-            const students = await getStudents();
-            const unpaid = students.filter(s => !eventPayments[s.reg]?.paid && s.phone);
-            if (unpaid.length === 0) {
-                showToast('No unpaid students with phone numbers.', 'warning');
-                return;
-            }
-            const phones = unpaid.map(s => cleanPhone(s.phone)).filter(p => p.length >= 10);
-            try {
-                await navigator.clipboard.writeText(phones.join('\n'));
-                showToast(`📋 Copied ${phones.length} phone numbers to clipboard!`, 'success');
-            } catch (e) {
-                showToast('Could not copy — please allow clipboard access.', 'error');
-            }
-        }
-
-        /* ---------- ALL STUDENTS TABLE ---------- */
-        async function renderAllStudents() {
-            if (!currentEventId) return;
-            const students = await getStudents();
-            const filter = (document.getElementById('filterInput')?.value || '').toLowerCase();
-            const filtered = students.filter(s =>
-                (String(s.name || '')).toLowerCase().includes(filter) ||
-                (String(s.reg || '')).toLowerCase().includes(filter) ||
-                (String(s.department || '')).toLowerCase().includes(filter)
-            );
-
-            const tbody = document.getElementById('allStudentsTableBody');
-            const emptyMsg = document.getElementById('allStudentsEmptyMsg');
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = '';
-                emptyMsg.textContent = students.length === 0
-                    ? '📭 No students yet.'
-                    : '🔍 No matching students found.';
-                return;
-            }
-
-            emptyMsg.textContent = '';
-            const events = await getEvents();
-            const ev = events.find(e => e.id === currentEventId) || {};
-
-            tbody.innerHTML = filtered.map((s, i) => {
-                const pay = eventPayments[s.reg] || {};
-                let statusBadge;
-                if (pay.paid) {
-                    statusBadge = '<span class="badge badge-paid">✅ Paid</span>';
-                } else if (pay.method === 'cash_pending') {
-                    statusBadge = '<span class="badge badge-pending">⏳ Cash Pending</span>';
-                } else {
-                    statusBadge = '<span class="badge badge-unpaid">❌ Unpaid</span>';
-                }
-
-                const paymentMethod = pay.paid
-                    ? (pay.method === 'cash' ? '💵 Cash' : '💳 UPI')
-                    : (pay.method === 'cash_pending' ? '💵 Cash (Pending)' : '-');
-
-                return `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${escapeHTML(s.name)}</td>
-            <td>${escapeHTML(s.reg)}</td>
-            <td>${escapeHTML(s.department || '-')}</td>
-            <td>${escapeHTML(s.phone || '-')}</td>
-            <td>₹${pay.amount || ev.amount || '-'}</td>
-            <td>${statusBadge}</td>
-            <td style="font-size:.85rem;">${paymentMethod}</td>
-            <td>
-              <button class="btn btn-primary btn-sm" onclick="openEditModal('${escapeHTML(s.reg)}')" title="Edit">
-                ✏️
-              </button>
-              <button class="btn btn-danger btn-sm" onclick="deleteStudent('${escapeHTML(s.reg)}')" title="Delete">
-                🗑️
-              </button>
-            </td>
-          </tr>`;
-            }).join('');
-        }
-
-        /* ---------- MARK PAID ---------- */
-        // [BUGFIX] Previously hardcoded method:'upi' for all manual mark-paid actions.
-        // Now opens a modal to select Cash or UPI.
-        let _markPaidPending = null; // holds { regNo, ev } while modal is open
-
-        async function markPaid(regNo) {
-            if (!currentEventId) return;
-            const students = await getStudents();
-            const s = students.find(x => x.reg === regNo);
-            const events = await getEvents();
-            const ev = events.find(e => e.id === currentEventId);
-            if (!s || !ev) return;
-
-            _markPaidPending = { regNo, ev, studentName: s.name };
-            document.getElementById('markPaidStudentName').textContent = `${s.name} — ₹${ev.amount}`;
-            document.getElementById('markPaidModal').classList.remove('hidden');
-        }
-
-        async function confirmMarkPaid(method) {
-            document.getElementById('markPaidModal').classList.add('hidden');
-            if (!_markPaidPending) return;
-            const { regNo, ev, studentName } = _markPaidPending;
-            _markPaidPending = null;
-
-            const paymentData = {
-                paid: true,
-                method: method,
-                amount: Number(ev.amount),
-                timestamp: Date.now()
-            };
-            await savePayment(currentEventId, regNo, paymentData);
-            await refreshAll();
-            showToast(`${studentName} marked as paid (${method === 'cash' ? '💵 Cash' : '💳 UPI'}) for ${ev.name}!`, 'success');
-        }
-
-        /* ---------- DELETE STUDENT ---------- */
-        // [BUGFIX] Previously called window.db directly without checking isConfigured,
-        // crashing when Firebase was not configured. Now uses shared deleteStudentRecord().
-        async function deleteStudent(regNo) {
-            if (!confirm('Are you sure you want to delete this student?')) return;
-            try {
-                await window.deleteStudentRecord(regNo);
-                await refreshAll();
-                showToast('Student has been removed.', 'info');
-            } catch (e) {
-                console.error(e);
-                showToast('Failed to delete student', 'error');
-            }
-        }
-
-        /* ---------- EDIT MODAL ---------- */
-        // [BUGFIX] Previously read s.paid and s.paymentMethod from the student object,
-        // but payment data is stored per-event in eventPayments[s.reg]. Fixed to read
-        // the correct source.
-        async function openEditModal(regNo) {
-            const students = await getStudents();
-            const s = students.find(x => x.reg === regNo);
-            if (!s) return;
-
-            const pay = eventPayments[regNo] || {};
-
-            document.getElementById('editIndex').value = s.reg;
-            document.getElementById('editName').value = s.name;
-            document.getElementById('editReg').value = s.reg;
-            document.getElementById('editDept').value = s.department || '';
-            document.getElementById('editPhone').value = s.phone || '';
-            document.getElementById('editAmount').value = pay.amount || s.amount || '';
-            document.getElementById('editPaid').value = pay.paid ? 'true' : 'false';
-            document.getElementById('editMethod').value = pay.method || '';
-            document.getElementById('editModal').classList.remove('hidden');
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-        }
-
-        // [BUGFIX] Previously: (1) called window.db directly for reg changes — crashes without Firebase;
-        // (2) saved paid/paymentMethod only to the student object, not to eventPayments, so changes
-        // were never reflected in the dashboard. Both are now fixed.
-        async function saveEdit() {
-            const originalReg = document.getElementById('editIndex').value;
-            const name = sanitize(document.getElementById('editName').value.trim());
-            const reg = sanitize(document.getElementById('editReg').value.trim());
-            const department = sanitize(document.getElementById('editDept').value.trim()) || '';
-            const phone = sanitize(document.getElementById('editPhone').value.trim()) || '';
-            const amount = Number(document.getElementById('editAmount').value);
-            const paid = document.getElementById('editPaid').value === 'true';
-            const paymentMethod = document.getElementById('editMethod').value;
-
-            if (!name || !reg) {
-                showToast('Name and Register Number are required', 'warning');
-                return;
-            }
-
-            if (originalReg !== reg) {
-                // Delete old student using the safe shared helper
-                await window.deleteStudentRecord(originalReg);
-            }
-
-            const updatedStudent = { name, reg, department, phone, amount };
-            await saveStudent(updatedStudent);
-
-            // Persist payment changes to the current event's payments collection
-            if (currentEventId) {
-                const existingPay = eventPayments[originalReg] || {};
-                const updatedPay = {
-                    ...existingPay,
-                    paid,
-                    method: paymentMethod || existingPay.method || '',
-                    amount: amount,
-                    timestamp: existingPay.timestamp || (paid ? Date.now() : null)
-                };
-                await savePayment(currentEventId, reg, updatedPay);
-            }
-
-            closeEditModal();
-            await refreshAll();
-            showToast('Student updated successfully!', 'success');
-        }
-
-        /* ---------- MANAGE EVENTS ---------- */
-        async function createNewEvent() {
-            const name = document.getElementById('eventName').value.trim();
-            const amount = Number(document.getElementById('eventAmount').value);
-            const upiId = document.getElementById('eventUPI').value.trim();
-            const date = document.getElementById('eventDate').value;
-            const description = document.getElementById('eventDescription').value.trim();
-
-            if (!name || !amount || !upiId) {
-                showToast('Please fill Name, Amount and UPI ID/Number', 'warning');
-                return;
-            }
-
-            const id = await saveEvent({ name, amount, upiId, date, description, status: 'active' });
-
-            // Clear other active statuses
-            const events = await getEvents();
-            for (const e of events) {
-                if (e.id !== id && e.status === 'active') {
-                    e.status = 'archived';
-                    await saveEvent(e);
-                }
-            }
-
-            document.getElementById('eventName').value = '';
-            document.getElementById('eventAmount').value = '';
-            document.getElementById('eventUPI').value = '';
-            document.getElementById('eventDate').value = '';
-            document.getElementById('eventDescription').value = '';
-
-            await initDashboard(); // Reload selector
-            showToast('Event created successfully!', 'success');
-        }
-
-        async function renderEventsTable() {
-            const events = await getEvents();
-            const tbody = document.getElementById('eventsTableBody');
-            tbody.innerHTML = events.map(e => `
-                <tr>
-                    <td><strong>${escapeHTML(e.name)}</strong></td>
-                    <td>${e.date || '-'}</td>
-                    <td>₹${e.amount}</td>
-                    <td><span class="badge ${e.status === 'active' ? 'badge-paid' : 'badge-unpaid'}">${e.status || 'archived'}</span></td>
-                    <td>
-                        <button class="btn btn-outline btn-sm" onclick="switchEventActive('${e.id}')">Set Active</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteEventUI('${e.id}')">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        async function switchEventActive(id) {
-            const events = await getEvents();
-            for (const e of events) {
-                e.status = (e.id === id) ? 'active' : 'archived';
-                await saveEvent(e);
-            }
-            await initDashboard();
-            showToast('Active event updated', 'success');
-        }
-
-        async function deleteEventUI(id) {
-            if (!confirm('Are you sure you want to delete this event? All payment records for this event will be disconnected.')) return;
-            await deleteEventRecord(id);
-            await initDashboard();
-            showToast('Event deleted', 'info');
-        }
-
-        /* ---------- NOTICE ---------- */
-        async function loadNoticeAdmin() {
-            const notice = await getNotice();
-            document.getElementById('noticeInput').value = notice;
-            const display = document.getElementById('currentNotice');
-            if (notice && notice.trim()) {
-                display.innerHTML = `
-          <div class="notice-banner">
-            <span class="notice-icon">📢</span>
-            <span class="notice-text">${escapeHTML(notice)}</span>
-          </div>`;
-            } else {
-                display.innerHTML = '<p style="color:var(--text-secondary);font-size:.85rem;">No notice posted yet.</p>';
-            }
-        }
-
-        async function saveNotice() {
-            const notice = document.getElementById('noticeInput').value.trim();
-            await saveNoticeFirestore(notice);
-            await loadNoticeAdmin();
-            showToast('Notice saved!', 'success');
-        }
-
-        async function deleteNotice() {
-            await saveNoticeFirestore("");
-            document.getElementById('noticeInput').value = '';
-            await loadNoticeAdmin();
-            showToast('Notice deleted.', 'info');
-        }
-
-        /* ---------- SETTINGS ---------- */
-        async function loadGlobalAmount() {
-            const amt = localStorage.getItem('global_amount');
-            if (amt) document.getElementById('globalAmount').value = amt;
-        }
-
-        async function setGlobalAmount() {
-            const amt = Number(document.getElementById('globalAmount').value);
-            if (!amt || amt <= 0) {
-                showToast('Please enter a valid amount', 'warning');
-                return;
-            }
-            localStorage.setItem('global_amount', amt);
-            const students = await getStudents();
-            for (const s of students) {
-                s.amount = amt;
-                await saveStudent(s);
-            }
-
-            const ev = await getEvent();
-            if (ev.name) {
-                ev.amount = amt;
-                await saveEventFirestore(ev);
-            }
-
-            await refreshAll();
-            showToast(`Fee amount set to ₹${amt} for all students`, 'success');
-        }
-
-        /* ---------- PAYMENT SETTINGS ---------- */
-        async function loadGlobalUPI() {
-            const ev = await getEvent();
-            const upi = ev.upiId || '';
-            document.getElementById('globalUPI').value = upi;
-        }
-
-        async function saveGlobalUPI() {
-            const upiId = document.getElementById('globalUPI').value.trim();
-            if (!upiId) {
-                showToast('Please enter a valid 10-digit UPI Phone Number', 'warning');
-                return;
-            }
-
-            const ev = await getEvent();
-            ev.upiId = upiId;
-
-            // Sync with event tab if it exists
-            const eventNameInput = document.getElementById('eventName');
-            if (!ev.name && eventNameInput && eventNameInput.value.trim()) {
-                ev.name = eventNameInput.value.trim();
-            }
-
-            await saveEventFirestore(ev);
-            await loadEventAdmin();
-            await loadGlobalUPI();
-            showToast('Global UPI Phone Number updated!', 'success');
-        }
-
-        async function clearAllData() {
-            if (!confirm('⚠️ Are you sure you want to delete ALL student data? This cannot be undone!')) return;
-            try {
-                const students = await getStudents();
-                if (window.isConfigured) {
-                    for (const s of students) {
-                        await window.db.collection("students").doc(s.reg).delete();
-                    }
-                }
-                localStorage.removeItem('students');
-                await refreshAll();
-                showToast('All student data cleared.', 'info');
-            } catch (e) {
-                console.error('Error clearing data:', e);
-                showToast('Failed to clear some data.', 'error');
-            }
-        }
-
-        /* ---------- CASH REQUESTS TABLE ---------- */
-        async function renderCashTable() {
-            if (!currentEventId) return;
-            const students = await getStudents();
-            const cashList = students.filter(s => {
-                const pay = eventPayments[s.reg];
-                return pay && !pay.paid && pay.method === 'cash_pending';
-            });
-            const tbody = document.getElementById('cashTableBody');
-            const emptyMsg = document.getElementById('cashEmptyMsg');
-
-            if (cashList.length === 0) {
-                tbody.innerHTML = '';
-                emptyMsg.textContent = '✅ No pending cash requests.';
-                return;
-            }
-            emptyMsg.textContent = '';
-            tbody.innerHTML = cashList.map((s, i) => `
-              <tr>
-                <td>${i + 1}</td>
-                <td>${escapeHTML(s.name)}</td>
-                <td>${escapeHTML(s.reg)}</td>
-                <td>${escapeHTML(s.department || '-')}</td>
-                <td><strong style="color:var(--primary);">📱 ${escapeHTML(s.phone || '-')}</strong></td>
-                <td>₹${eventPayments[s.reg].amount}</td>
-                <td>
-                  <div style="display:flex; gap:8px;">
-                    <button class="btn btn-success btn-sm" onclick="approveCash('${escapeHTML(s.reg)}')">
-                      ✅ Collect
-                    </button>
-                    ${s.phone ? `
-                      <a href="tel:${cleanPhone(s.phone)}" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
-                        📞 Call
-                      </a>
-                      <a href="https://wa.me/91${cleanPhone(s.phone)}" target="_blank" class="btn btn-sm" style="background:#25D366; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
-                        💬 Msg
-                      </a>
-                    ` : ''}
-                  </div>
-                </td>
-              </tr>`).join('');
-        }
-
-        async function approveCash(regNo) {
-            if (!currentEventId) return;
-            const students = await getStudents();
-            const student = students.find(s => s.reg === regNo);
-            const pay = eventPayments[regNo];
-            if (!student || !pay) return;
-
-            pay.paid = true;
-            pay.method = 'cash';
-            pay.timestamp = Date.now();
-            await savePayment(currentEventId, regNo, pay);
-            await refreshAll();
-            showToast(`${student.name} — Cash collected & marked paid! ✅`, 'success');
-        }
-
-        /* ---------- REFRESH ALL ---------- */
-        async function refreshAll() {
-            await updateStats();
-            await renderCharts();
-            await renderUnpaidTable();
-            await renderAllStudents();
-            await renderCashTable();
-        }
-
-        /* ---------- LOGOUT ---------- */
-        async function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                try {
-                    await firebase.auth().signOut();
-                    window.location.href = 'login.html';
-                } catch (e) {
-                    console.error("Logout error:", e);
-                    // Even if Firebase sign out fails, redirect to login to clear local state
-                    window.location.href = 'login.html';
-                }
-            }
-        }
-
-        // --- AUTH GUARD ---
-        firebase.auth().onAuthStateChanged(user => {
-            if (!user) {
-                console.warn("Unauthorized access. Redirecting to login...");
-                window.location.href = 'login.html';
-            } else {
-                console.log("Authenticated as:", user.email);
-                initDashboard();
-            }
+      }
+
+      p.paid = true;
+      p.method = 'cash';
+      await window.savePayment(currentEventId, reg, p);
+      refreshAll();
+    }
+
+    async function renderEventsTable() {
+      const events = await window.getEvents();
+      document.getElementById('eventsTableBody').innerHTML = events.map(e => {
+        const isActive = e.status === 'active';
+        return `<tr>
+          <td><strong>${window.escapeHTML(e.name)}</strong></td>
+          <td>${e.date || '-'}</td>
+          <td>₹${e.amount}</td>
+          <td><span class="badge ${isActive ? 'badge-success' : 'badge-secondary'}" style="background-color: ${isActive ? '#10B981' : '#6B7280'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">${isActive ? 'Active' : 'Archived'}</span></td>
+          <td>
+            <button class="btn btn-primary btn-sm" onclick="openEditEventModal('${e.id}')" title="Edit">✏️</button>
+            <button class="btn ${isActive ? 'btn-outline-danger' : 'btn-success'} btn-sm" onclick="toggleEventStatus('${e.id}', '${e.status}')">
+              ${isActive ? 'Deactivate' : 'Activate'}
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function toggleEventStatus(id, currentStatus) {
+      const evs = await window.getEvents();
+      const e = evs.find(x => x.id === id);
+      if (e) {
+        e.status = (currentStatus === 'active' ? 'archived' : 'active');
+        await window.saveEvent(e);
+        window.showToast(`Event ${e.status === 'active' ? 'activated' : 'archived'}`);
+      }
+      initDashboard();
+    }
+
+    async function openEditEventModal(id) {
+      const evs = await window.getEvents();
+      const e = evs.find(x => x.id === id);
+      if (!e) return;
+      document.getElementById('editEventId').value = e.id;
+      document.getElementById('editEventName').value = e.name;
+      document.getElementById('editEventAmount').value = e.amount;
+      document.getElementById('editEventUPI').value = e.upiId || e.upi || '';
+      document.getElementById('editEventDate').value = e.date || '';
+      document.getElementById('editEventDescription').value = e.description || '';
+      document.getElementById('editEventModal').classList.remove('hidden');
+    }
+
+    async function saveEditEvent() {
+      const id = document.getElementById('editEventId').value;
+      const name = document.getElementById('editEventName').value.trim();
+      const amount = Number(document.getElementById('editEventAmount').value);
+      const upiId = document.getElementById('editEventUPI').value.trim();
+      const date = document.getElementById('editEventDate').value;
+      const description = document.getElementById('editEventDescription').value.trim();
+
+      if (!name || !amount || !upiId) {
+        window.showToast('Please fill required fields', 'warning');
+        return;
+      }
+
+      const evs = await window.getEvents();
+      const e = evs.find(x => x.id === id);
+      if (e) {
+        Object.assign(e, { name, amount, upiId, date, description });
+        await window.saveEvent(e);
+        document.getElementById('editEventModal').classList.add('hidden');
+        window.showToast('Event updated');
+        initDashboard();
+      }
+    }
+
+    async function saveNotice() { await window.saveNoticeFirestore(document.getElementById('noticeInput').value); loadNoticeAdmin(); }
+    async function loadNoticeAdmin() { const n = await window.getNotice(); document.getElementById('noticeInput').value = n; document.getElementById('currentNotice').textContent = n; }
+
+    async function saveGlobalAmount() {
+      const evs = await window.getEvents();
+      const ev = evs.find(e => e.id === currentEventId);
+      if (ev) {
+        ev.amount = document.getElementById('globalAmount').value;
+        await window.saveEvent(ev);
+        window.showToast('Fee amount updated');
+      }
+    }
+
+    async function saveAdminSettings() {
+      const name = document.getElementById('adminNameInput').value.trim();
+      const upi = document.getElementById('globalUPI').value.trim();
+      await window.saveAdminName(name);
+      
+      const evs = await window.getEvents();
+      const ev = evs.find(e => e.id === currentEventId);
+      if (ev) {
+        ev.upiId = upi;
+        await window.saveEvent(ev);
+      }
+      window.showToast('Settings updated');
+    }
+
+    async function loadGlobalSettings() {
+      const evs = await window.getEvents();
+      const ev = evs.find(e => e.id === currentEventId);
+      if (ev) {
+        document.getElementById('globalAmount').value = ev.amount || '';
+        document.getElementById('globalUPI').value = ev.upiId || ev.upi || '';
+      }
+      document.getElementById('adminNameInput').value = await window.getAdminName();
+    }
+
+    function exportExcel(type) {
+      window.getStudents().then(students => {
+        let filtered = students;
+        if (type === 'paid') filtered = students.filter(s => eventPayments[s.reg.toUpperCase()]?.paid);
+        else if (type === 'unpaid') filtered = students.filter(s => !eventPayments[s.reg.toUpperCase()]?.paid);
+        
+        const data = filtered.map((s, i) => {
+          const p = eventPayments[s.reg.toUpperCase()] || {};
+          return {
+            '#': i + 1,
+            'Name': s.name,
+            'Reg No': s.reg,
+            'Dept': s.department || '-',
+            'Phone': s.phone || '-',
+            'Amount': p.amount || 0,
+            'Method': p.method || '-',
+            'Status': p.paid ? 'Paid' : 'Unpaid'
+          };
         });
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Students");
+        XLSX.writeFile(wb, `Students_${type}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      });
+    }
 
-        // Expose to window for HTML onclicks
-        window.switchTab = switchTab;
-        window.addStudent = addStudent;
-        window.handleExcelUpload = handleExcelUpload;
-        window.exportExcel = exportExcel;
-        window.markPaid = markPaid;
-        window.confirmMarkPaid = confirmMarkPaid;
-        window.copyUnpaidPhones = copyUnpaidPhones;
-        window.openEditModal = openEditModal;
-        window.deleteStudent = deleteStudent;
-        window.closeEditModal = closeEditModal;
-        window.saveEdit = saveEdit;
-        window.createNewEvent = createNewEvent;
-        window.renderEventsTable = renderEventsTable;
-        window.switchEventActive = switchEventActive;
-        window.deleteEventUI = deleteEventUI;
-        window.switchEvent = switchEvent;
-        window.saveNotice = saveNotice;
-        window.deleteNotice = deleteNotice;
-        window.setGlobalAmount = setGlobalAmount;
-        window.clearAllData = clearAllData;
-        window.logout = logout;
-        window.renderAllStudents = renderAllStudents;
-        window.saveGlobalUPI = saveGlobalUPI;
-        window.loadGlobalUPI = loadGlobalUPI;
-        window.renderCashTable = renderCashTable;
-        window.approveCash = approveCash;
+    function refreshAll() { updateStats(); renderCharts(); renderUnpaidTable(); renderPaidTable(); renderAllStudents(); renderCashTable(); loadGlobalSettings(); }
+    function toggleSidebar() { window.toggleSidebar(); }
 
-        // Initialize on load (Now handled by onAuthStateChanged)
-    </script>
+    async function logout() { if (window.isConfigured) await window.auth.signOut(); sessionStorage.clear(); window.location.href = 'login.html'; }
+
+    if (window.isConfigured) {
+      window.auth.onAuthStateChanged(u => { if (!u) window.location.href = 'login.html'; else initDashboard(); });
+    } else {
+      if (!sessionStorage.getItem('admin_logged_in')) window.location.href = 'login.html'; else initDashboard();
+    }
+  </script>
 </body>
-
+</html>
+</body>
 </html>

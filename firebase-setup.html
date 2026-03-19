@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Setup — Smart Student Fee Management</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        :root { --primary: #1D428A; --bg: #F8F9FA; --surface: #FFFFFF; --text: #1A1D23; --border: #E5E7EB; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 40px 20px; line-height: 1.6; }
+        .container { max-width: 800px; margin: 0 auto; background: var(--surface); padding: 32px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        h1 { margin-top: 0; color: var(--primary); }
+        .status { padding: 12px 20px; border-radius: 8px; font-weight: 700; margin-bottom: 24px; }
+        .status.success { background: #D1FAE5; color: #065F46; }
+        .status.error { background: #FEE2E2; color: #991B1B; }
+        .card { border: 1px solid var(--border); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        pre { background: #1A1D23; color: #E5E7EB; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.9rem; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .nav { margin-bottom: 20px; }
+        .nav a { color: var(--primary); text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav"><a href="admin.html">← Back to Admin</a></div>
+        <h1>Firebase & Firestore Setup</h1>
+        
+        <div id="connectionStatus" class="status">Checking connection...</div>
+
+        <div class="card">
+            <h2>1. Firestore Security Rules</h2>
+            <p>Copy and paste these rules into your <strong>Firebase Console > Cloud Firestore > Rules</strong> tab to allow the app to work correctly.</p>
+            <pre>
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow anyone to read/write shared settings like notices
+    match /settings/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow anyone to read all students (for the search/login flow)
+    match /students/{studentId} {
+      allow read: if true;
+      // Writing to student records is restricted to Admins (Auth required)
+      allow write: if request.auth != null;
+    }
+    
+    // Payments subcollection
+    match /events/{eventId}/payments/{regNo} {
+      // Students can read their own payment status and create "Cash Pending" requests
+      allow read: if true;
+      allow create: if true;
+      // Updating existing payments requires Admin Auth
+      allow update, delete: if request.auth != null;
+    }
+    
+    // Events collection
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}</pre>
+        </div>
+
+        <div class="card">
+            <h2>2. Initialize Database</h2>
+            <p>Click the button below to create the initial collections with sample student data. This will help you verify that your Firestore connection is working correctly.</p>
+            <button id="initBtn" disabled>Initialize Collections</button>
+            <p id="initStatus" style="margin-top:12px; font-weight:600;"></p>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="script.js"></script>
+    <script>
+        const statusEl = document.getElementById('connectionStatus');
+        const initBtn = document.getElementById('initBtn');
+        const initStatusEl = document.getElementById('initStatus');
+
+        function checkConnection() {
+            if (window.isConfigured) {
+                statusEl.textContent = '✅ Connected to Firebase (' + firebase.app().options.projectId + ')';
+                statusEl.className = 'status success';
+                initBtn.disabled = false;
+            } else {
+                statusEl.textContent = '❌ Not Configured. Update firebase-config.js with your project credentials.';
+                statusEl.className = 'status error';
+                initBtn.disabled = true;
+            }
+        }
+
+        async function initializeData() {
+            try {
+                initBtn.disabled = true;
+                initStatusEl.textContent = '⏳ Initializing...';
+
+                // 1. Create a default event if none exists
+                const events = await window.getEvents();
+                if (events.length === 0) {
+                    await window.saveEvent({
+                        id: 'event_default',
+                        name: 'College Trip 2026',
+                        amount: 500,
+                        upi: '9876543210',
+                        date: '2026-04-15',
+                        status: 'active'
+                    });
+                }
+
+                // 2. Add some sample students
+                const students = [
+                    { name: "Arun Kumar", reg: "22CSE001", department: "CSE", phone: "9876543210" },
+                    { name: "Priya Sharma", reg: "22CSE002", department: "CSE", phone: "9876543211" },
+                    { name: "John Doe", reg: "22ECE001", department: "ECE", phone: "9876543212" }
+                ];
+                
+                // Add to Firestore using saveStudents (batch write)
+                await window.saveStudents(students);
+
+                initStatusEl.style.color = 'green';
+                initStatusEl.textContent = '✅ Database initialized successfully! Check your Admin Dashboard.';
+            } catch (e) {
+                console.error(e);
+                initStatusEl.style.color = 'red';
+                initStatusEl.textContent = '❌ Error: ' + e.message;
+                initBtn.disabled = false;
+            }
+        }
+
+        initBtn.onclick = initializeData;
+        window.onload = checkConnection;
+    </script>
+</body>
+</html>

@@ -29,6 +29,7 @@
         <div class="sidebar-nav" id="sidebarNav">
             <button class="sidebar-item active" onclick="switchTab('manage')">📋 Manage</button>
             <button class="sidebar-item" onclick="switchTab('unpaid')">❌ Unpaid</button>
+            <button class="sidebar-item" onclick="switchTab('paid')">✅ Paid</button>
             <button class="sidebar-item" onclick="switchTab('allStudents')">📄 All Students</button>
             <button class="sidebar-item" onclick="switchTab('cash')">💵 Cash Requests</button>
             <button class="sidebar-item" onclick="switchTab('event')">🎪 Event / Trip</button>
@@ -213,6 +214,37 @@
             </div>
         </div>
 
+        <!-- ===== TAB: PAID LIST ===== -->
+        <div class="tab-panel" id="tab-paid">
+            <div class="section">
+                <h2 class="section-title">✅ Paid Students</h2>
+                <div class="toolbar" style="margin-bottom:12px;">
+                    <input type="text" id="paidFilterInput" class="form-control"
+                        placeholder="🔍 Search by name, reg no, or department..."
+                        style="max-width:360px;" oninput="renderPaidTable()">
+                    <button class="btn btn-success" onclick="exportExcel('paid')">📥 Export Paid</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Reg No</th>
+                                <th>Department</th>
+                                <th>Phone</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paidTableBody"></tbody>
+                    </table>
+                </div>
+                <p class="mt-2" id="paidEmptyMsg"
+                    style="text-align:center;color:var(--text-secondary);font-size:.9rem;"></p>
+            </div>
+        </div>
+
         <!-- ===== TAB: ALL STUDENTS ===== -->
         <div class="tab-panel" id="tab-allStudents">
             <div class="section">
@@ -367,10 +399,17 @@
                             maxlength="10" style="max-width:400px;"
                             oninput="this.value=this.value.replace(/[^0-9]/g,'')">
                     </div>
-                    <button class="btn btn-primary" onclick="saveGlobalUPI()">💾 Save UPI Number</button>
+                    <div class="form-group"><label for="adminNameInput">Managing Admin Name</label><input type="text" id="adminNameInput" class="form-control" placeholder="e.g. Mr. Arun" style="max-width:400px;"></div>
+                    <button class="btn btn-primary" onclick="saveAdminSettings()">💾 Save Settings</button>
                     <p class="mt-2" style="font-size:.8rem;color:var(--text-secondary);">
                         Enter the 10-digit mobile number registered with UPI (e.g. GPay / PhonePe / Paytm).
                     </p>
+                </div>
+
+                <div class="card mt-3">
+                    <h3 class="card-header" style="margin-bottom:12px;">🛠️ Database Maintenance</h3>
+                    <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px;">Use the setup utility to verify your Firebase connection and initialize basic data.</p>
+                    <a href="firebase-setup.html" class="btn btn-outline" style="text-decoration:none;">🚀 Open Firebase Setup Utility</a>
                 </div>
 
                 <div class="card mt-3">
@@ -452,6 +491,28 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== EDIT EVENT MODAL ===== -->
+    <div class="modal-overlay hidden" id="editEventModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>✏️ Edit Event</h3>
+                <button class="close-btn" onclick="document.getElementById('editEventModal').classList.add('hidden')">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editEventId">
+                <div class="form-group"><label>Event Name</label><input type="text" id="editEventName" class="form-control" required></div>
+                <div class="form-group"><label>Fee Amount (₹)</label><input type="number" id="editEventAmount" class="form-control" required></div>
+                <div class="form-group"><label>UPI ID or Phone</label><input type="text" id="editEventUPI" class="form-control" required></div>
+                <div class="form-group"><label>Event Date</label><input type="date" id="editEventDate" class="form-control"></div>
+                <div class="form-group"><label>Description</label><textarea id="editEventDescription" class="form-control" rows="3"></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="document.getElementById('editEventModal').classList.add('hidden')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEditEvent()">💾 Save Changes</button>
             </div>
         </div>
     </div>
@@ -722,9 +783,14 @@
             document.getElementById('tab-' + tabName).classList.add('active');
 
             const buttons = document.querySelectorAll('.sidebar-item');
-            const tabMap = ['manage', 'unpaid', 'allStudents', 'cash', 'event', 'notice', 'settings'];
+            const tabMap = ['manage', 'unpaid', 'paid', 'allStudents', 'cash', 'event', 'notice', 'settings'];
             const idx = tabMap.indexOf(tabName);
             if (idx >= 0 && buttons[idx]) buttons[idx].classList.add('active');
+            
+            if (tabName === 'manage') refreshAll();
+            if (tabName === 'unpaid') renderUnpaidTable();
+            if (tabName === 'paid') renderPaidTable();
+            if (tabName === 'allStudents') renderAllStudents();
 
             if (tabName === 'manage') {
                 updateStats();
@@ -1181,15 +1247,6 @@
 
             const id = await saveEvent({ name, amount, upiId, date, description, status: 'active' });
 
-            // Clear other active statuses
-            const events = await getEvents();
-            for (const e of events) {
-                if (e.id !== id && e.status === 'active') {
-                    e.status = 'archived';
-                    await saveEvent(e);
-                }
-            }
-
             document.getElementById('eventName').value = '';
             document.getElementById('eventAmount').value = '';
             document.getElementById('eventUPI').value = '';
@@ -1203,28 +1260,71 @@
         async function renderEventsTable() {
             const events = await getEvents();
             const tbody = document.getElementById('eventsTableBody');
-            tbody.innerHTML = events.map(e => `
+            tbody.innerHTML = events.map(e => {
+                const isActive = e.status === 'active';
+                return `
                 <tr>
                     <td><strong>${escapeHTML(e.name)}</strong></td>
                     <td>${e.date || '-'}</td>
                     <td>₹${e.amount}</td>
-                    <td><span class="badge ${e.status === 'active' ? 'badge-paid' : 'badge-unpaid'}">${e.status || 'archived'}</span></td>
+                    <td><span class="badge ${isActive ? 'badge-paid' : 'badge-unpaid'}">${e.status || 'archived'}</span></td>
                     <td>
-                        <button class="btn btn-outline btn-sm" onclick="switchEventActive('${e.id}')">Set Active</button>
+                        <button class="btn btn-primary btn-sm" onclick="openEditEventModal('${e.id}')" title="Edit">✏️</button>
+                        <button class="btn ${isActive ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="toggleEventStatus('${e.id}', '${e.status}')">
+                            ${isActive ? 'Deactivate' : 'Set Active'}
+                        </button>
                         <button class="btn btn-danger btn-sm" onclick="deleteEventUI('${e.id}')">🗑️</button>
                     </td>
                 </tr>
-            `).join('');
+            `;}).join('');
         }
 
-        async function switchEventActive(id) {
+        async function toggleEventStatus(id, currentStatus) {
             const events = await getEvents();
-            for (const e of events) {
-                e.status = (e.id === id) ? 'active' : 'archived';
+            const e = events.find(x => x.id === id);
+            if (e) {
+                e.status = (currentStatus === 'active' ? 'archived' : 'active');
                 await saveEvent(e);
+                showToast(`Event ${e.status === 'active' ? 'activated' : 'archived'}`, 'success');
             }
             await initDashboard();
-            showToast('Active event updated', 'success');
+        }
+
+        async function openEditEventModal(id) {
+            const evs = await getEvents();
+            const e = evs.find(x => x.id === id);
+            if (!e) return;
+            document.getElementById('editEventId').value = e.id;
+            document.getElementById('editEventName').value = e.name;
+            document.getElementById('editEventAmount').value = e.amount;
+            document.getElementById('editEventUPI').value = e.upiId || e.upi || '';
+            document.getElementById('editEventDate').value = e.date || '';
+            document.getElementById('editEventDescription').value = e.description || '';
+            document.getElementById('editEventModal').classList.remove('hidden');
+        }
+
+        async function saveEditEvent() {
+            const id = document.getElementById('editEventId').value;
+            const name = document.getElementById('editEventName').value.trim();
+            const amount = Number(document.getElementById('editEventAmount').value);
+            const upiId = document.getElementById('editEventUPI').value.trim();
+            const date = document.getElementById('editEventDate').value;
+            const description = document.getElementById('editEventDescription').value.trim();
+
+            if (!name || !amount || !upiId) {
+                showToast('Please fill required fields', 'warning');
+                return;
+            }
+
+            const evs = await getEvents();
+            const e = evs.find(x => x.id === id);
+            if (e) {
+                Object.assign(e, { name, amount, upiId, date, description });
+                await saveEvent(e);
+                document.getElementById('editEventModal').classList.add('hidden');
+                showToast('Event updated', 'success');
+                await initDashboard();
+            }
         }
 
         async function deleteEventUI(id) {
@@ -1298,14 +1398,19 @@
             const ev = await getEvent();
             const upi = ev.upiId || '';
             document.getElementById('globalUPI').value = upi;
+            document.getElementById('adminNameInput').value = await window.getAdminName();
         }
 
-        async function saveGlobalUPI() {
+        async function saveAdminSettings() {
             const upiId = document.getElementById('globalUPI').value.trim();
+            const adminName = document.getElementById('adminNameInput').value.trim();
+            
             if (!upiId) {
                 showToast('Please enter a valid 10-digit UPI Phone Number', 'warning');
                 return;
             }
+
+            await window.saveAdminName(adminName);
 
             const ev = await getEvent();
             ev.upiId = upiId;
@@ -1319,7 +1424,7 @@
             await saveEventFirestore(ev);
             await loadEventAdmin();
             await loadGlobalUPI();
-            showToast('Global UPI Phone Number updated!', 'success');
+            showToast('Settings updated!', 'success');
         }
 
         async function clearAllData() {
@@ -1345,7 +1450,7 @@
             if (!currentEventId) return;
             const students = await getStudents();
             const cashList = students.filter(s => {
-                const pay = eventPayments[s.reg];
+                const pay = eventPayments[s.reg.toUpperCase()];
                 return pay && !pay.paid && pay.method === 'cash_pending';
             });
             const tbody = document.getElementById('cashTableBody');
@@ -1357,38 +1462,49 @@
                 return;
             }
             emptyMsg.textContent = '';
-            tbody.innerHTML = cashList.map((s, i) => `
+            tbody.innerHTML = cashList.map((s, i) => {
+                const p = eventPayments[s.reg.toUpperCase()];
+                const displayPhone = p.phone || s.phone || '';
+                return `
               <tr>
                 <td>${i + 1}</td>
                 <td>${escapeHTML(s.name)}</td>
                 <td>${escapeHTML(s.reg)}</td>
                 <td>${escapeHTML(s.department || '-')}</td>
-                <td><strong style="color:var(--primary);">📱 ${escapeHTML(s.phone || '-')}</strong></td>
-                <td>₹${eventPayments[s.reg].amount}</td>
+                <td><strong style="color:var(--primary);">📱 ${escapeHTML(displayPhone || '-')}</strong></td>
+                <td>₹${p.amount}</td>
                 <td>
                   <div style="display:flex; gap:8px;">
                     <button class="btn btn-success btn-sm" onclick="approveCash('${escapeHTML(s.reg)}')">
                       ✅ Collect
                     </button>
-                    ${s.phone ? `
-                      <a href="tel:${cleanPhone(s.phone)}" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                    ${displayPhone ? `
+                      <a href="tel:${window.cleanPhone(displayPhone)}" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
                         📞 Call
                       </a>
-                      <a href="https://wa.me/91${cleanPhone(s.phone)}" target="_blank" class="btn btn-sm" style="background:#25D366; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                      <a href="https://wa.me/91${window.cleanPhone(displayPhone)}" target="_blank" class="btn btn-sm" style="background:#25D366; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
                         💬 Msg
                       </a>
                     ` : ''}
                   </div>
                 </td>
-              </tr>`).join('');
+              </tr>`;
+            }).join('');
         }
 
         async function approveCash(regNo) {
             if (!currentEventId) return;
+            const regUpper = regNo.toUpperCase();
             const students = await getStudents();
-            const student = students.find(s => s.reg === regNo);
-            const pay = eventPayments[regNo];
+            const student = students.find(s => s.reg.toUpperCase() === regUpper);
+            const pay = eventPayments[regUpper];
             if (!student || !pay) return;
+
+            // Update student record with phone from payment (if student didn't already have one)
+            if (pay.phone && !student.phone) {
+                student.phone = pay.phone;
+                await window.saveStudent(student); // Admin can save student data
+            }
 
             pay.paid = true;
             pay.method = 'cash';
@@ -1403,8 +1519,58 @@
             await updateStats();
             await renderCharts();
             await renderUnpaidTable();
+            await renderPaidTable();
             await renderAllStudents();
             await renderCashTable();
+        }
+
+        async function renderPaidTable() {
+            const students = await getStudents();
+            const filter = document.getElementById('paidFilterInput').value.toLowerCase();
+            const paid = students.filter(s => {
+                const p = eventPayments[s.reg.toUpperCase()];
+                const matches = s.name.toLowerCase().includes(filter) || s.reg.toLowerCase().includes(filter) || (s.department && s.department.toLowerCase().includes(filter));
+                return p?.paid && matches;
+            });
+            const tbody = document.getElementById('paidTableBody');
+            const emptyMsg = document.getElementById('paidEmptyMsg');
+
+            if (paid.length === 0) {
+                tbody.innerHTML = '';
+                emptyMsg.textContent = '📂 No paid students found.';
+                return;
+            }
+            emptyMsg.textContent = '';
+            tbody.innerHTML = paid.map((s, i) => {
+                const p = eventPayments[s.reg.toUpperCase()];
+                return `<tr><td>${i+1}</td><td>${s.name}</td><td>${s.reg}</td><td>${s.department}</td><td>${s.phone}</td><td>₹${p.amount}</td><td>${p.method || '-'}</td></tr>`;
+            }).join('');
+        }
+
+        function exportExcel(type) {
+            getStudents().then(students => {
+                let filtered = students;
+                if (type === 'paid') filtered = students.filter(s => eventPayments[s.reg.toUpperCase()]?.paid);
+                else if (type === 'unpaid') filtered = students.filter(s => !eventPayments[s.reg.toUpperCase()]?.paid);
+
+                const data = filtered.map((s, i) => {
+                    const p = eventPayments[s.reg.toUpperCase()] || {};
+                    return {
+                        '#': i + 1,
+                        'Name': s.name,
+                        'Reg No': s.reg,
+                        'Dept': s.department || '-',
+                        'Phone': s.phone || '-',
+                        'Amount': p.amount || 0,
+                        'Method': p.method || '-',
+                        'Status': p.paid ? 'Paid' : 'Unpaid'
+                    };
+                });
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Students");
+                XLSX.writeFile(wb, `Students_${type}_${new Date().toISOString().split('T')[0]}.xlsx`);
+            });
         }
 
         /* ---------- LOGOUT ---------- */
@@ -1450,7 +1616,9 @@
         window.saveEdit = saveEdit;
         window.createNewEvent = createNewEvent;
         window.renderEventsTable = renderEventsTable;
-        window.switchEventActive = switchEventActive;
+        window.openEditEventModal = openEditEventModal;
+        window.saveEditEvent = saveEditEvent;
+        window.toggleEventStatus = toggleEventStatus;
         window.deleteEventUI = deleteEventUI;
         window.switchEvent = switchEvent;
         window.saveNotice = saveNotice;
@@ -1459,7 +1627,8 @@
         window.clearAllData = clearAllData;
         window.logout = logout;
         window.renderAllStudents = renderAllStudents;
-        window.saveGlobalUPI = saveGlobalUPI;
+        window.renderPaidTable = renderPaidTable;
+        window.saveAdminSettings = saveAdminSettings;
         window.loadGlobalUPI = loadGlobalUPI;
         window.renderCashTable = renderCashTable;
         window.approveCash = approveCash;
