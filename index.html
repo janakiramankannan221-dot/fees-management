@@ -8,16 +8,32 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.4">
+  <script src="script.js?v=2.4" defer></script>
 </head>
 <body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-icon" style="background:#fff; color:var(--primary);">🎓</div>
+      <h2 style="font-size: 1.2rem; font-weight: 800; margin-top: 12px;">Menu</h2>
+    </div>
+    <div class="sidebar-nav">
+      <a href="index.html" class="sidebar-item active">🏠 Student Home</a>
+      <a href="login.html" class="sidebar-item">🔐 Admin Login</a>
+    </div>
+  </div>
+
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
   <nav class="navbar">
     <div class="brand">
+      <button class="sidebar-toggle" onclick="window.toggleSidebar()">☰</button>
       <div class="logo-icon">🎓</div>
       <span class="brand-text">Smart Fee Manager</span>
       <span class="version-badge">v2.3</span>
     </div>
-    <div class="nav-links"><a href="login.html">🔐 Admin</a></div>
   </nav>
 
   <section class="hero">

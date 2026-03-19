@@ -4,6 +4,46 @@
    ============================================ */
 
 /**
+ * Toggle mobile sidebar
+ */
+function toggleSidebar() {
+    console.log("toggleSidebar called");
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (sidebar) {
+        const isOpen = sidebar.classList.toggle('open');
+        console.log("Sidebar isOpen:", isOpen);
+        if (overlay) {
+            if (isOpen) {
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden'; 
+            } else {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+    } else {
+        console.error("Sidebar element not found!");
+    }
+}
+
+/**
+ * Close mobile sidebar
+ */
+function closeSidebar() {
+    console.log("closeSidebar called");
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+window.toggleSidebar = toggleSidebar;
+window.closeSidebar = closeSidebar;
+
+/**
  * Retrieve the students array from Firestore or LocalStorage.
  * @returns {Promise<Array>} Array of student objects
  */
@@ -418,11 +458,4 @@ window.escapeHTML = escapeHTML;
 window.cleanPhone = cleanPhone;
 window.showToast = showToast;
 
-/**
- * Toggle mobile sidebar
- */
-function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) sidebar.classList.toggle('open');
-}
-window.toggleSidebar = toggleSidebar;
+window.showToast = showToast;

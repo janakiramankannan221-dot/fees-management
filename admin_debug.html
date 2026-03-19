@@ -7,7 +7,8 @@
     <title>[V2.2] Admin Dashboard — Smart Student Fee Management</title>
     <meta name="description"
         content="Admin dashboard for managing student event fees, uploading data, and sending reminders">
-    <link rel="stylesheet" href="style.css?v=2.1">
+    <link rel="stylesheet" href="style.css?v=2.4">
+    <script src="script.js?v=2.4" defer></script>
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -23,7 +24,10 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-brand">
-            <div class="logo-icon" style="background:#fff; color:var(--primary);">🎓</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="logo-icon" style="background:#fff; color:var(--primary);">🎓</div>
+                <button class="sidebar-toggle" onclick="window.toggleSidebar()" style="background:transparent; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
             <h2 style="font-size: 1.2rem; font-weight: 800; margin-top: 12px;">Admin Panel</h2>
         </div>
         <div class="sidebar-nav" id="sidebarNav">
@@ -38,10 +42,13 @@
         </div>
     </div>
 
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
     <!-- Navbar -->
     <nav class="navbar">
         <div class="brand">
-            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+            <button class="sidebar-toggle" onclick="window.toggleSidebar()">☰</button>
             <div class="logo-icon">🎓</div>
             Admin Panel
         </div>
@@ -799,10 +806,7 @@
             }
 
             // Close sidebar on mobile after clicking
-            if (window.innerWidth <= 992) {
-                const sidebar = document.querySelector('.sidebar');
-                if (sidebar) sidebar.classList.remove('open');
-            }
+            if (window.innerWidth <= 992) window.toggleSidebar();
             if (tabName === 'unpaid') renderUnpaidTable();
             if (tabName === 'allStudents') renderAllStudents();
             if (tabName === 'cash') renderCashTable();
@@ -1632,6 +1636,8 @@
         window.loadGlobalUPI = loadGlobalUPI;
         window.renderCashTable = renderCashTable;
         window.approveCash = approveCash;
+        window.toggleSidebar = window.toggleSidebar || toggleSidebar;
+        window.closeSidebar = window.closeSidebar || closeSidebar;
 
         // Initialize on load (Now handled by onAuthStateChanged)
     </script>
