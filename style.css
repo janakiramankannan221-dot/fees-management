@@ -210,15 +210,17 @@ img {
   top: 0;
   bottom: 0;
   width: 260px;
-  background: #0F172A; /* Deep Slate Sidebar */
-  color: #fff;
+  background: rgba(255, 255, 255, 0.4); /* Transparent White Glass */
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  color: var(--text);
   z-index: 1100; /* Highest on mobile */
   padding: 32px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: var(--shadow-xl);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow-lg);
+  border-right: 1px solid rgba(255, 255, 255, 0.6);
   transition: all 0.4s var(--ease);
 }
 
@@ -279,7 +281,7 @@ img {
   padding: 12px 16px;
   border-radius: 12px;
   background: transparent;
-  color: #94A3B8; /* Muted Slate */
+  color: var(--text-secondary); /* Muted Dark on light background */
   font-weight: 600;
   font-size: .95rem;
   display: flex;
@@ -292,8 +294,8 @@ img {
 }
 
 .sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.05); /* Very light dark hover */
+  color: var(--text);
 }
 
 .sidebar-item.active {
@@ -479,13 +481,21 @@ img {
   border: 1px solid var(--glass-border);
   border-top: 4px solid var(--primary);
   /* NBA Team Color Top Border */
-  transition: all 0.4s var(--ease);
+  transition: all 0.3s var(--ease);
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  user-select: none;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(37, 99, 235, 0.4);
+  background: #fff;
+}
+
+.stat-card:active {
+  transform: translateY(-2px) scale(0.98);
 }
 
 .stat-card .stat-icon {

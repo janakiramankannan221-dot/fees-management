@@ -168,6 +168,22 @@
         return;
       }
 
+      // Check eligibility for restricted events
+      if (ev.targetType === 'selected' && ev.targetStudents) {
+        if (!ev.targetStudents.includes(regNo)) {
+          resultArea.innerHTML = `
+            <div class="result-card">
+              <div class="result-header" style="background:var(--warning); color:#fff;"><h2>⚠️ Not Registered</h2></div>
+              <div class="result-body text-center" style="padding:32px;">
+                <p>Register Number <strong>${window.escapeHTML(regNo)}</strong> is not included in the participant list for this event.</p>
+                <p style="color:var(--text-secondary); font-size:.85rem; margin-top:8px;">Please contact the event coordinator or admin for more details.</p>
+              </div>
+            </div>`;
+          resultArea.scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+      }
+
       const payments = await window.getPayments(ev.id);
       const pay = payments[student.reg.toUpperCase()] || {};
       let statusBadge, payButton;
@@ -190,13 +206,19 @@
           </div>`;
       }
       
+      function getGenderEmoji(gender) {
+        if (gender === 'female') return '👩‍🎓';
+        if (gender === 'male') return '👨‍🎓';
+        return '👤';
+      }
+
       resultArea.innerHTML = `
         <div class="container">
           <div class="card glass-glow-card" style="margin-bottom:32px; border-left:8px solid var(--primary); background:#fff; box-shadow:var(--shadow-lg);">
             <div style="display:flex; align-items:center; gap:20px; padding:10px 5px;">
-              <div style="font-size:3rem; background:var(--surface-alt); width:80px; height:80px; display:flex; align-items:center; justify-content:center; border-radius:12px; border:2px solid var(--border);">⛹️</div>
+              <div style="font-size:3rem; background:var(--surface-alt); width:80px; height:80px; display:flex; align-items:center; justify-content:center; border-radius:12px; border:2px solid var(--border);">${getGenderEmoji(student.gender)}</div>
               <div>
-                <h2 style="font-size:1.6rem; font-weight:900; color:var(--text); margin-bottom:4px; text-transform:uppercase; letter-spacing:-0.5px;">${window.escapeHTML(student.name)}</h2>
+                <h2 style="font-size:1.6rem; font-weight:900; color:var(--text); margin-bottom:4px; text-transform:uppercase; letter-spacing:-0.5px;">${getGenderEmoji(student.gender)} ${window.escapeHTML(student.name)}</h2>
                 <p style="font-size:.95rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                   <span style="opacity:.7;">Reg:</span>${window.escapeHTML(student.reg)}
                   ${student.department ? `<span style="opacity:.3; font-weight:300;">|</span><span style="color:var(--accent);">${window.escapeHTML(student.department)}</span>` : ''}
